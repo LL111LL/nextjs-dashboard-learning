@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { fetchCardData } from "../lib/data";
+import RevenueChart from "./revenue-chart";
 
 function formatCurrency(amountInCents: number) {
   return new Intl.NumberFormat("zh-CN", {
@@ -78,6 +79,13 @@ export default function DashboardPage() {
       <Suspense fallback={<CardsSkeleton />}>
         <DashboardCards />
       </Suspense>
+      <Suspense
+  fallback={
+    <div className="mt-6 h-80 animate-pulse rounded-xl bg-zinc-200" />
+  }
+>
+  <RevenueChart />
+</Suspense>
     </main>
   );
 }

@@ -109,3 +109,86 @@ export async function fetchLatestInvoices(): Promise<LatestInvoice[]> {
       invoice.status === "paid" ? "paid" : "pending",
   }));
 }
+
+
+const INVOICES_PER_PAGE = 3;
+
+export type InvoiceRow = {
+  id: string;
+  customerId: string;
+  name: string;
+  email: string;
+  imageUrl: string;
+  amount: number;
+  status: "pending" | "paid";
+  date: string;
+};
+
+export async function fetchFilteredInvoices(
+  query: string,
+  currentPage: number,
+): Promise<InvoiceRow[]> {
+  const sql = getSql();
+  const offset = (currentPage - 1) * INVOICES_PER_PAGE;
+  const searchTerm = `%${query}%`;
+
+  const data = await sql`
+    SELECT
+      invoices.id,
+      invoices.customer_id,
+      invoices.amount,
+      invoices.status,
+      invoices.date,
+      customers.name,
+      customers.email,
+      customers.image_url
+    FROM invoices
+    JOIN customers
+      ON invoices.customer_id = customers.id
+    WHERE
+      customers.name ILIKE ${searchTerm}
+      OR customers.email ILIKE ${searchTerm}
+      OR invoices.status ILIKE ${searchTerm}
+      OR invoices.date::text ILIKE ${searchTerm}
+      OR invoices.amount::text ILIKE ${searchTerm}
+    ORDER BY invoices.date DESC
+    LIMIT ${INVOICES_PER_PAGE}
+    OFFSET ${offset}
+  `;
+
+  return data.map((invoice) => ({
+    id: String(invoice.id),
+    customerId: String(invoice.customer_id),
+    name: String(invoice.name),
+    email: String(invoice.email),
+    imageUrl: String(invoice.image_url),
+    amount: Number(invoice.amount),
+    status:
+      invoice.status === "paid" ? "paid" : "pending",
+    date: String(invoice.date),
+  }));
+}
+
+export async function fetchInvoicesPages(
+  query: string,
+): Promise<number> {
+  const sql = getSql();
+  const searchTerm = `%${query}%`;
+
+  const data = await sql`
+    SELECT COUNT(*)::int AS count
+    FROM invoices
+    JOIN customers
+      ON invoices.customer_id = customers.id
+    WHERE
+      customers.name ILIKE ${searchTerm}
+      OR customers.email ILIKE ${searchTerm}
+      OR invoices.status ILIKE ${searchTerm}
+      OR invoices.date::text ILIKE ${searchTerm}
+      OR invoices.amount::text ILIKE ${searchTerm}
+  `;
+
+  return Math.ceil(
+    Number(data[0].count) / INVOICES_PER_PAGE,
+  );
+}

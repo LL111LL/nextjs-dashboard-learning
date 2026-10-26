@@ -72,3 +72,41 @@ export async function fetchRevenue(): Promise<Revenue[]> {
     revenue: Number(item.revenue),
   }));
 }
+
+export type LatestInvoice = {
+  amount: number;
+  name: string;
+  email: string;
+  imageUrl: string;
+  date: string;
+  status: "pending" | "paid";
+};
+
+export async function fetchLatestInvoices(): Promise<LatestInvoice[]> {
+  const sql = getSql();
+
+  const data = await sql`
+    SELECT
+      invoices.amount,
+      invoices.date,
+      invoices.status,
+      customers.name,
+      customers.email,
+      customers.image_url
+    FROM invoices
+    JOIN customers
+      ON invoices.customer_id = customers.id
+    ORDER BY invoices.date DESC
+    LIMIT 5
+  `;
+
+  return data.map((invoice) => ({
+    amount: Number(invoice.amount),
+    name: String(invoice.name),
+    email: String(invoice.email),
+    imageUrl: String(invoice.image_url),
+    date: String(invoice.date),
+    status:
+      invoice.status === "paid" ? "paid" : "pending",
+  }));
+}

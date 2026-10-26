@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { fetchCardData } from "../lib/data";
 import RevenueChart from "./revenue-chart";
+import LatestInvoices from "./latest-invoices";
 
 function formatCurrency(amountInCents: number) {
   return new Intl.NumberFormat("zh-CN", {
@@ -79,13 +80,23 @@ export default function DashboardPage() {
       <Suspense fallback={<CardsSkeleton />}>
         <DashboardCards />
       </Suspense>
-      <Suspense
-  fallback={
-    <div className="mt-6 h-80 animate-pulse rounded-xl bg-zinc-200" />
-  }
->
-  <RevenueChart />
-</Suspense>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Suspense
+          fallback={
+            <div className="mt-6 h-80 animate-pulse rounded-xl bg-zinc-200" />
+          }
+        >
+          <RevenueChart />
+        </Suspense>
+
+        <Suspense
+          fallback={
+            <div className="mt-6 h-80 animate-pulse rounded-xl bg-zinc-200" />
+          }
+        >
+          <LatestInvoices />
+        </Suspense>
+      </div>
     </main>
   );
 }

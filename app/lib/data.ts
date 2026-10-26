@@ -48,6 +48,12 @@ export type Revenue = {
 export async function fetchRevenue(): Promise<Revenue[]> {
   const sql = getSql();
 
+  console.log("开始读取营收数据……");
+
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 3000);
+  });
+
   const data = await sql`
     SELECT month, revenue
     FROM revenue
@@ -66,7 +72,7 @@ export async function fetchRevenue(): Promise<Revenue[]> {
       WHEN 'Dec' THEN 12
     END
   `;
-
+console.log("营收数据延迟 3 秒后读取完成。");
   return data.map((item) => ({
     month: String(item.month),
     revenue: Number(item.revenue),

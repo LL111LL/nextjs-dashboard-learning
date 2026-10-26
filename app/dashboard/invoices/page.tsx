@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import Search from "./search";
 import InvoicesTable from "./table";
+import Pagination from "./pagination";
+import { fetchInvoicesPages } from "../../lib/data";
 
 type InvoicesPageProps = {
   searchParams: Promise<{
@@ -13,6 +15,15 @@ function TableSkeleton() {
   return (
     <div className="mt-6 h-72 animate-pulse rounded-xl bg-zinc-200" />
   );
+}
+async function PaginationWithData({
+  query,
+}: {
+  query: string;
+}) {
+  const totalPages = await fetchInvoicesPages(query);
+
+  return <Pagination totalPages={totalPages} />;
 }
 
 async function InvoiceResults({
@@ -39,6 +50,14 @@ async function InvoiceResults({
           query={query}
           currentPage={currentPage}
         />
+      </Suspense>
+      <Suspense
+        key={`pagination-${query}`}
+        fallback={
+          <div className="mt-6 h-10 animate-pulse rounded bg-zinc-200" />
+        }
+      >
+        <PaginationWithData query={query} />
       </Suspense>
     </>
   );

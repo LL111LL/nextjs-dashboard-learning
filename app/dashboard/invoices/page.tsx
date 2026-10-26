@@ -3,6 +3,8 @@ import Search from "./search";
 import InvoicesTable from "./table";
 import Pagination from "./pagination";
 import { fetchInvoicesPages } from "../../lib/data";
+import Link from "next/link";
+
 
 type InvoicesPageProps = {
   searchParams: Promise<{
@@ -68,7 +70,16 @@ export default function InvoicesPage(
 ) {
   return (
     <main className="p-8">
-      <h1 className="text-3xl font-bold">发票管理</h1>
+        <div className="flex items-center justify-between gap-4">
+    <h1 className="text-3xl font-bold">发票管理</h1>
+
+  <Link
+    href="/dashboard/invoices/create"
+    className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500"
+  >
+    创建发票
+  </Link>
+  </div>
       <p className="mt-2 text-zinc-600">
         使用客户、邮箱、状态、日期或金额搜索发票。
       </p>

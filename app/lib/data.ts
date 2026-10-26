@@ -192,3 +192,26 @@ export async function fetchInvoicesPages(
     Number(data[0].count) / INVOICES_PER_PAGE,
   );
 }
+
+
+export type CustomerOption = {
+  id: string;
+  name: string;
+};
+
+export async function fetchCustomers(): Promise<
+  CustomerOption[]
+> {
+  const sql = getSql();
+
+  const data = await sql`
+    SELECT id, name
+    FROM customers
+    ORDER BY name ASC
+  `;
+
+  return data.map((customer) => ({
+    id: String(customer.id),
+    name: String(customer.name),
+  }));
+}

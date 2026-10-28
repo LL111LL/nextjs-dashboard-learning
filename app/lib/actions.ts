@@ -4,6 +4,8 @@ import { neon } from "@neondatabase/serverless";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { signIn } from "@/auth";
+import { AuthError } from "next-auth";
 
 export type InvoiceActionState = {
   errors?: {
@@ -163,4 +165,24 @@ export async function deleteInvoice(id: string) {
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/invoices");
+}
+
+export async function authenticate(
+  _previousState: string | undefined,
+  formData: FormData,
+): Promise<string | undefined> {
+  try {
+    await signIn("credentials", formData);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      switch (error.type) {
+        case "CredentialsSignin":
+          return "邮箱或密码不正确。";
+        default:
+          return "登录失败，请稍后重试。";
+      }
+    }
+
+    throw error;
+  }
 }

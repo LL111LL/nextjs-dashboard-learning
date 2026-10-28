@@ -1,6 +1,7 @@
 import Image from "next/image";
 import clsx from "clsx";
 import { fetchFilteredInvoices } from "../../lib/data";
+import Link from "next/link";
 
 function formatCurrency(amountInCents: number) {
   return new Intl.NumberFormat("zh-CN", {
@@ -38,6 +39,7 @@ export default async function InvoicesTable({
             <th className="px-4 py-3 font-medium">金额</th>
             <th className="px-4 py-3 font-medium">日期</th>
             <th className="px-4 py-3 font-medium">状态</th>
+            <th className="px-4 py-3 text-right font-medium">操作</th>
           </tr>
         </thead>
 
@@ -91,6 +93,14 @@ export default async function InvoicesTable({
                     ? "已支付"
                     : "待处理"}
                 </span>
+              </td>
+              <td className="px-4 py-3 text-right">
+                <Link
+                  href={`/dashboard/invoices/${invoice.id}/edit`}
+                  className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  编辑
+                </Link>
               </td>
             </tr>
           ))}

@@ -215,3 +215,41 @@ export async function fetchCustomers(): Promise<
     name: String(customer.name),
   }));
 }
+
+export type InvoiceFormData = {
+  id: string;
+  customerId: string;
+  amount: number;
+  status: "pending" | "paid";
+};
+
+export async function fetchInvoiceById(
+  id: string,
+): Promise<InvoiceFormData | undefined> {
+  const sql = getSql();
+
+  const data = await sql`
+    SELECT
+      id,
+      customer_id,
+      amount,
+      status
+    FROM invoices
+    WHERE id = ${id}
+    LIMIT 1
+  `;
+
+  const invoice = data[0];
+
+  if (!invoice) {
+    return undefined;
+  }
+
+  return {
+    id: String(invoice.id),
+    customerId: String(invoice.customer_id),
+    amount: Number(invoice.amount),
+    status:
+      invoice.status === "paid" ? "paid" : "pending",
+  };
+}

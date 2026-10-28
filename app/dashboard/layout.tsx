@@ -1,5 +1,6 @@
 import NavLinks from "./nav-links";
 import { Suspense, type ReactNode } from "react";
+import { signOut } from "@/auth";
 
 export default function DashboardLayout({
   children,
@@ -19,6 +20,20 @@ export default function DashboardLayout({
         >
           <NavLinks />
         </Suspense>
+        <form
+          action={async () => {
+            "use server";
+            await signOut({ redirectTo: "/" });
+          }}
+          className="mt-6"
+        >
+          <button
+            type="submit"
+            className="w-full rounded-lg bg-blue-500 px-4 py-2 text-left font-medium text-white hover:bg-blue-400"
+          >
+            退出登录
+          </button>
+        </form>       
       </aside>
 
       <section className="flex-1 bg-zinc-50">

@@ -1,14 +1,26 @@
+"use client";
+
 import Link from "next/link";
-import { createInvoice } from "../../lib/actions";
 import type { CustomerOption } from "../../lib/data";
+import {createInvoice,type InvoiceActionState,} from "@/app/lib/actions";
+import { useActionState } from "react";
 
 export default function CreateInvoiceForm({
   customers,
 }: {
-  customers: CustomerOption[];
-}) {
+      customers: CustomerOption[];
+    }) {
+      const initialState: InvoiceActionState = {
+      message: null,
+      errors: {},
+    };
+
+    const [state, formAction, isPending] = useActionState(
+      createInvoice,
+      initialState,
+    );
   return (
-    <form action={createInvoice}>
+    <form action={formAction} noValidate>
       <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div>
           <label
@@ -24,6 +36,7 @@ export default function CreateInvoiceForm({
             defaultValue=""
             required
             className="w-full rounded-lg border border-zinc-300 px-3 py-2"
+            aria-describedby="customer-error"
           >
             <option value="" disabled>
               请选择客户
@@ -38,6 +51,13 @@ export default function CreateInvoiceForm({
               </option>
             ))}
           </select>
+          <div id="customer-error" aria-live="polite" aria-atomic="true">
+            {state.errors?.customerId?.map((error) => (
+              <p className="mt-2 text-sm text-red-500" key={error}>
+                {error}
+              </p>
+            ))}
+          </div>
         </div>
 
         <div className="mt-5">
@@ -57,10 +77,18 @@ export default function CreateInvoiceForm({
             required
             placeholder="例如：99.99"
             className="w-full rounded-lg border border-zinc-300 px-3 py-2"
+            aria-describedby="amount-error"
           />
+          <div id="amount-error" aria-live="polite" aria-atomic="true">
+            {state.errors?.amount?.map((error) => (
+              <p className="mt-2 text-sm text-red-500" key={error}>
+                {error}
+              </p>
+            ))}
+          </div>
         </div>
 
-        <fieldset className="mt-5">
+        <fieldset className="mt-5" aria-describedby="status-error">
           <legend className="mb-2 text-sm font-medium text-zinc-700">
             状态
           </legend>
@@ -86,6 +114,13 @@ export default function CreateInvoiceForm({
             </label>
           </div>
         </fieldset>
+        <div id="status-error" aria-live="polite" aria-atomic="true">
+          {state.errors?.status?.map((error) => (
+            <p className="mt-2 text-sm text-red-500" key={error}>
+              {error}
+            </p>
+          ))}
+        </div>
       </div>
 
       <div className="mt-6 flex justify-end gap-3">
@@ -95,13 +130,19 @@ export default function CreateInvoiceForm({
         >
           取消
         </Link>
-
+        <div aria-live="polite" aria-atomic="true">
+          {state.message && (
+            <p className="mt-2 text-sm text-red-500">{state.message}</p>
+          )}
+        </div>
         <button
-          type="submit"
-          className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500"
-        >
-          创建发票
-        </button>
+        type="submit"
+        disabled={isPending}
+        aria-disabled={isPending}
+        className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500"
+      >
+        {isPending ? "正在创建……" : "创建发票"}
+      </button>
       </div>
     </form>
   );

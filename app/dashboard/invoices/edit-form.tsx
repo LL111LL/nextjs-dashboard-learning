@@ -1,9 +1,9 @@
+"use client";
+
 import Link from "next/link";
-import { updateInvoice } from "../../lib/actions";
-import type {
-  CustomerOption,
-  InvoiceFormData,
-} from "../../lib/data";
+import { useActionState } from "react";
+import {updateInvoice,type InvoiceActionState,} from "../../lib/actions";
+import type {CustomerOption,InvoiceFormData,} from "../../lib/data";
 
 export default function EditInvoiceForm({
   invoice,
@@ -17,8 +17,18 @@ export default function EditInvoiceForm({
     invoice.id,
   );
 
+  const initialState: InvoiceActionState = {
+  message: null,
+  errors: {},
+};
+
+const [state, formAction, isPending] = useActionState(
+  updateInvoiceWithId,
+  initialState,
+);
+
   return (
-    <form action={updateInvoiceWithId}>
+    <form action={formAction} noValidate>
       <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div>
           <label
@@ -34,6 +44,7 @@ export default function EditInvoiceForm({
             defaultValue={invoice.customerId}
             required
             className="w-full rounded-lg border border-zinc-300 px-3 py-2"
+            aria-describedby="customer-error"
           >
             {customers.map((customer) => (
               <option
@@ -44,6 +55,13 @@ export default function EditInvoiceForm({
               </option>
             ))}
           </select>
+          <div id="customer-error" aria-live="polite" aria-atomic="true">
+            {state.errors?.customerId?.map((error) => (
+              <p className="mt-2 text-sm text-red-500" key={error}>
+                {error}
+              </p>
+            ))}
+          </div>
         </div>
 
         <div className="mt-5">
@@ -63,10 +81,18 @@ export default function EditInvoiceForm({
             required
             defaultValue={invoice.amount / 100}
             className="w-full rounded-lg border border-zinc-300 px-3 py-2"
+            aria-describedby="amount-error"
           />
+          <div id="amount-error" aria-live="polite" aria-atomic="true">
+            {state.errors?.amount?.map((error) => (
+              <p className="mt-2 text-sm text-red-500" key={error}>
+                {error}
+              </p>
+            ))}
+          </div>
         </div>
 
-        <fieldset className="mt-5">
+        <fieldset className="mt-5" aria-describedby="status-error">
           <legend className="mb-2 text-sm font-medium text-zinc-700">
             状态
           </legend>
@@ -97,6 +123,13 @@ export default function EditInvoiceForm({
             </label>
           </div>
         </fieldset>
+        <div id="status-error" aria-live="polite" aria-atomic="true">
+          {state.errors?.status?.map((error) => (
+            <p className="mt-2 text-sm text-red-500" key={error}>
+              {error}
+            </p>
+          ))}
+        </div>
       </div>
 
       <div className="mt-6 flex justify-end gap-3">
@@ -106,13 +139,19 @@ export default function EditInvoiceForm({
         >
           取消
         </Link>
-
-        <button
-          type="submit"
-          className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500"
-        >
-          保存修改
-        </button>
+        <div aria-live="polite" aria-atomic="true">
+          {state.message && (
+            <p className="text-sm text-red-500">{state.message}</p>
+          )}
+        </div>
+      <button
+        type="submit"
+        disabled={isPending}
+        aria-disabled={isPending}
+        className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {isPending ? "正在保存……" : "保存修改"}
+      </button>
       </div>
     </form>
   );

@@ -73,9 +73,16 @@ export async function createInvoice(
 
 export async function updateInvoice(
   id: string,
+  _previousState: InvoiceActionState,
   formData: FormData,
-) {
+): Promise<InvoiceActionState> {
   const idResult = z.string().uuid().safeParse(id);
+
+  if (!idResult.success) {
+    return {
+      message: "发票 ID 无效。",
+    };
+  }
 
   const formResult = CreateInvoiceSchema.safeParse({
     customerId: formData.get("customerId"),
@@ -83,32 +90,47 @@ export async function updateInvoice(
     status: formData.get("status"),
   });
 
-  if (!idResult.success || !formResult.success) {
-    throw new Error("发票更新数据无效");
+  if (!formResult.success) {
+    return {
+      errors: formResult.error.flatten().fieldErrors,
+      message: "更新发票失败，请检查表单中的错误。",
+    };
   }
 
   if (!process.env.DATABASE_URL) {
-    throw new Error("缺少 DATABASE_URL");
+    return {
+      message: "服务器没有配置数据库连接。",
+    };
   }
 
   const invoiceId = idResult.data;
-  const { customerId, amount, status } =
-    formResult.data;
+  const { customerId, amount, status } = formResult.data;
   const amountInCents = Math.round(amount * 100);
-  const sql = neon(process.env.DATABASE_URL);
 
-  const updatedInvoices = await sql`
-    UPDATE invoices
-    SET
-      customer_id = ${customerId},
-      amount = ${amountInCents},
-      status = ${status}
-    WHERE id = ${invoiceId}
-    RETURNING id
-  `;
+  try {
+    const sql = neon(process.env.DATABASE_URL);
 
-  if (updatedInvoices.length === 0) {
-    throw new Error("找不到需要更新的发票");
+    const updatedInvoices = await sql`
+      UPDATE invoices
+      SET
+        customer_id = ${customerId},
+        amount = ${amountInCents},
+        status = ${status}
+      WHERE id = ${invoiceId}
+      RETURNING id
+    `;
+
+    if (updatedInvoices.length === 0) {
+      return {
+        message: "找不到需要更新的发票。",
+      };
+    }
+  } catch (error) {
+    console.error("更新发票失败：", error);
+
+    return {
+      message: "数据库错误：更新发票失败。",
+    };
   }
 
   revalidatePath("/dashboard");

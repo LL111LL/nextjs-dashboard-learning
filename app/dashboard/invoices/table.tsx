@@ -2,6 +2,7 @@ import Image from "next/image";
 import clsx from "clsx";
 import { fetchFilteredInvoices } from "../../lib/data";
 import Link from "next/link";
+import DeleteInvoiceButton from "./delete-button";
 
 function formatCurrency(amountInCents: number) {
   return new Intl.NumberFormat("zh-CN", {
@@ -94,14 +95,18 @@ export default async function InvoicesTable({
                     : "待处理"}
                 </span>
               </td>
-              <td className="px-4 py-3 text-right">
+              <td className="px-4 py-3">
+              <div className="flex justify-end gap-2">
                 <Link
                   href={`/dashboard/invoices/${invoice.id}/edit`}
                   className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
                 >
                   编辑
                 </Link>
-              </td>
+
+                <DeleteInvoiceButton id={invoice.id} />
+              </div>
+            </td>
             </tr>
           ))}
         </tbody>

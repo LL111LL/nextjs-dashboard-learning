@@ -97,3 +97,30 @@ export async function updateInvoice(
   revalidatePath("/dashboard/invoices");
   redirect("/dashboard/invoices");
 }
+
+export async function deleteInvoice(id: string) {
+  const idResult = z.string().uuid().safeParse(id);
+
+  if (!idResult.success) {
+    throw new Error("发票 ID 无效");
+  }
+
+  if (!process.env.DATABASE_URL) {
+    throw new Error("缺少 DATABASE_URL");
+  }
+
+  const sql = neon(process.env.DATABASE_URL);
+
+  const deletedInvoices = await sql`
+    DELETE FROM invoices
+    WHERE id = ${idResult.data}
+    RETURNING id
+  `;
+
+  if (deletedInvoices.length === 0) {
+    throw new Error("找不到需要删除的发票");
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/invoices");
+}

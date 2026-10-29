@@ -1,6 +1,7 @@
 import Image from "next/image";
 import styles from "./home.module.css";
 import Status from "./status";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -63,29 +64,19 @@ export default function Home() {
           </p>
         </div>
         <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/dashboard"
+            className="flex h-12 w-full items-center justify-center rounded-full bg-black px-5 text-white transition-colors hover:bg-zinc-700 md:w-[158px]"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            进入控制台
+          </Link>
+
+          <Link
+            href="/register"
+            className="flex h-12 w-full items-center justify-center rounded-full border border-zinc-300 px-5 text-zinc-900 transition-colors hover:bg-zinc-100 md:w-[158px]"
           >
-            Documentation
-          </a>
+            创建账号
+          </Link>
         </div>
       </main>
     </div>

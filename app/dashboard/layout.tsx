@@ -1,6 +1,28 @@
 import NavLinks from "./nav-links";
 import { Suspense, type ReactNode } from "react";
-import { signOut } from "@/auth";
+import { auth, signOut } from "@/auth";
+
+async function UserInfo() {
+  const session = await auth();
+
+  if (!session?.user) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 rounded-lg bg-blue-500 p-3 text-sm">
+      <p className="font-medium">
+        {session.user.name || "已登录用户"}
+      </p>
+
+      {session.user.email && (
+        <p className="mt-1 truncate text-blue-100">
+          {session.user.email}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function DashboardLayout({
   children,
@@ -11,6 +33,13 @@ export default function DashboardLayout({
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className="bg-blue-600 p-6 text-white md:w-64">
         <h2 className="text-xl font-bold">我的控制台</h2>
+        <Suspense
+          fallback={
+            <div className="mt-4 h-16 animate-pulse rounded-lg bg-blue-500" />
+          }
+        >
+          <UserInfo />
+        </Suspense>
         <Suspense
           fallback={
             <nav className="mt-6">

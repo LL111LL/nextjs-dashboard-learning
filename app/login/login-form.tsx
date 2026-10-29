@@ -3,11 +3,15 @@
 import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { authenticate } from "../lib/actions";
+import Link from "next/link";
 
 export default function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl =
     searchParams.get("callbackUrl") || "/dashboard";
+
+  const registered =
+  searchParams.get("registered") === "1";
 
   const [errorMessage, formAction, isPending] =
     useActionState(authenticate, undefined);
@@ -17,6 +21,14 @@ export default function LoginForm() {
       action={formAction}
       className="space-y-4 rounded-xl bg-white p-6 shadow-sm"
     >
+      {registered && (
+  <div
+    className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700"
+    role="status"
+  >
+    注册成功，请使用新账号登录。
+  </div>
+)}
       <div>
         <label
           htmlFor="email"
@@ -82,6 +94,15 @@ export default function LoginForm() {
           </p>
         )}
       </div>
+      <p className="text-center text-sm text-zinc-600">
+        还没有账号？{" "}
+        <Link
+          href="/register"
+          className="font-medium text-blue-600 hover:underline"
+        >
+          创建账号
+        </Link>
+      </p>
     </form>
   );
 }

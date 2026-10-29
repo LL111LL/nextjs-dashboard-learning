@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { Suspense } from "react";
-
+import Link from "next/link";
 import { fetchCustomerSummaries } from "../../lib/data";
 
 export const metadata: Metadata = {
@@ -33,6 +33,9 @@ async function CustomersTable() {
           <tr>
             <th className="px-4 py-3 font-medium">
               客户
+            </th>
+            <th className="px-4 py-3 font-medium">
+              类型
             </th>
             <th className="px-4 py-3 font-medium">
               发票数量
@@ -70,6 +73,20 @@ async function CustomersTable() {
                 </div>
               </td>
 
+              <td className="px-4 py-3">
+                <span
+                  className={
+                    customer.isSystem
+                      ? "inline-flex rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600"
+                      : "inline-flex rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700"
+                  }
+                >
+                  {customer.isSystem
+                    ? "系统客户"
+                    : "我的客户"}
+                </span>
+              </td>
+
               <td className="px-4 py-3 text-zinc-700">
                 {customer.invoiceCount}
               </td>
@@ -100,13 +117,24 @@ function CustomersTableSkeleton() {
 export default function CustomersPage() {
   return (
     <main className="p-8">
-      <h1 className="text-3xl font-bold">
-        客户管理
-      </h1>
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h1 className="text-3xl font-bold">
+          客户管理
+        </h1>
 
-      <p className="mt-2 text-zinc-600">
-        查看当前账号与每位客户之间的发票汇总。
-      </p>
+        <p className="mt-2 text-zinc-600">
+          查看客户资料以及当前账号的发票汇总。
+        </p>
+      </div>
+
+      <Link
+        href="/dashboard/customers/create"
+        className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500"
+      >
+        新增客户
+      </Link>
+    </div>
 
       <Suspense fallback={<CustomersTableSkeleton />}>
         <CustomersTable />

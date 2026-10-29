@@ -278,10 +278,14 @@ export async function fetchCustomers(): Promise<
   CustomerOption[]
 > {
   const sql = getSql();
+  const userId = await getAuthenticatedUserId();
 
   const data = await sql`
     SELECT id, name
     FROM customers
+    WHERE
+      owner_id IS NULL
+      OR owner_id = ${userId}
     ORDER BY name ASC
   `;
 
@@ -299,6 +303,7 @@ export type CustomerSummary = {
   invoiceCount: number;
   totalPaid: number;
   totalPending: number;
+  isSystem: boolean;
 };
 
 export async function fetchCustomerSummaries(): Promise<
@@ -313,6 +318,7 @@ export async function fetchCustomerSummaries(): Promise<
       customers.name,
       customers.email,
       customers.image_url,
+      customers.owner_id,
       COUNT(invoices.id)::int AS invoice_count,
       COALESCE(
         SUM(
@@ -338,6 +344,9 @@ export async function fetchCustomerSummaries(): Promise<
     LEFT JOIN invoices
       ON invoices.customer_id = customers.id
       AND invoices.user_id = ${userId}
+    WHERE
+      customers.owner_id IS NULL
+      OR customers.owner_id = ${userId}
     GROUP BY
       customers.id,
       customers.name,
@@ -354,6 +363,7 @@ export async function fetchCustomerSummaries(): Promise<
     invoiceCount: Number(customer.invoice_count),
     totalPaid: Number(customer.total_paid),
     totalPending: Number(customer.total_pending),
+    isSystem: customer.owner_id === null,
   }));
 }
 

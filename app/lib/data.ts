@@ -291,6 +291,72 @@ export async function fetchCustomers(): Promise<
   }));
 }
 
+export type CustomerSummary = {
+  id: string;
+  name: string;
+  email: string;
+  imageUrl: string;
+  invoiceCount: number;
+  totalPaid: number;
+  totalPending: number;
+};
+
+export async function fetchCustomerSummaries(): Promise<
+  CustomerSummary[]
+> {
+  const sql = getSql();
+  const userId = await getAuthenticatedUserId();
+
+  const data = await sql`
+    SELECT
+      customers.id,
+      customers.name,
+      customers.email,
+      customers.image_url,
+      COUNT(invoices.id)::int AS invoice_count,
+      COALESCE(
+        SUM(
+          CASE
+            WHEN invoices.status = 'paid'
+              THEN invoices.amount
+            ELSE 0
+          END
+        ),
+        0
+      )::int AS total_paid,
+      COALESCE(
+        SUM(
+          CASE
+            WHEN invoices.status = 'pending'
+              THEN invoices.amount
+            ELSE 0
+          END
+        ),
+        0
+      )::int AS total_pending
+    FROM customers
+    LEFT JOIN invoices
+      ON invoices.customer_id = customers.id
+      AND invoices.user_id = ${userId}
+    GROUP BY
+      customers.id,
+      customers.name,
+      customers.email,
+      customers.image_url
+    ORDER BY customers.name ASC
+  `;
+
+  return data.map((customer) => ({
+    id: String(customer.id),
+    name: String(customer.name),
+    email: String(customer.email),
+    imageUrl: String(customer.image_url),
+    invoiceCount: Number(customer.invoice_count),
+    totalPaid: Number(customer.total_paid),
+    totalPending: Number(customer.total_pending),
+  }));
+}
+
 export type InvoiceFormData = {
   id: string;
   customerId: string;

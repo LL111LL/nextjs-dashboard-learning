@@ -2,6 +2,11 @@ import { Suspense } from "react";
 import { fetchCardData } from "../lib/data";
 import RevenueChart from "./revenue-chart";
 import LatestInvoices from "./latest-invoices";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "控制台",
+};
 
 function formatCurrency(amountInCents: number) {
   return new Intl.NumberFormat("zh-CN", {

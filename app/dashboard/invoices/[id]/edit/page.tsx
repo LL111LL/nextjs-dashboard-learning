@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import {
-  fetchCustomers,
-  fetchInvoiceById,
-} from "../../../../lib/data";
+import {fetchCustomers,fetchInvoiceById,} from "../../../../lib/data";
 import EditInvoiceForm from "../../edit-form";
+import type { Metadata } from "next";
+
+
+export const metadata: Metadata = {
+  title: "编辑发票",
+};
 
 type EditInvoicePageProps = {
   params: Promise<{

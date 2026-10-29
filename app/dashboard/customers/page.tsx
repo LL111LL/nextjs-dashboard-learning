@@ -1,3 +1,10 @@
+import type { Metadata } from "next";
+
+
+export const metadata: Metadata = {
+  title: "客户",
+};
+
 export default function CustomersPage() {
   return (
     <main className="p-8">

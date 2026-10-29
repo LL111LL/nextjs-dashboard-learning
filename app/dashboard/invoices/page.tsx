@@ -4,7 +4,12 @@ import InvoicesTable from "./table";
 import Pagination from "./pagination";
 import { fetchInvoicesPages } from "../../lib/data";
 import Link from "next/link";
+import type { Metadata } from "next";
 
+
+export const metadata: Metadata = {
+  title: "发票",
+};
 
 type InvoicesPageProps = {
   searchParams: Promise<{

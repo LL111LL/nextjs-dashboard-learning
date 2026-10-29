@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { auth } from "@/auth";
 
 function getSql() {
   if (!process.env.DATABASE_URL) {
@@ -8,35 +9,69 @@ function getSql() {
   return neon(process.env.DATABASE_URL);
 }
 
+async function getAuthenticatedUserId(): Promise<string> {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    throw new Error("用户未登录");
+  }
+
+  return session.user.id;
+}
+
 export async function fetchCardData() {
   const sql = getSql();
+  const userId = await getAuthenticatedUserId();
 
   const [
     invoiceCountResult,
     customerCountResult,
     invoiceStatusResult,
   ] = await Promise.all([
-    sql`SELECT COUNT(*)::int AS count FROM invoices`,
-    sql`SELECT COUNT(*)::int AS count FROM customers`,
+    sql`
+      SELECT COUNT(*)::int AS count
+      FROM invoices
+      WHERE user_id = ${userId}
+    `,
+    sql`
+      SELECT COUNT(DISTINCT customer_id)::int AS count
+      FROM invoices
+      WHERE user_id = ${userId}
+    `,
     sql`
       SELECT
         COALESCE(
-          SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END),
+          SUM(
+            CASE
+              WHEN status = 'paid' THEN amount
+              ELSE 0
+            END
+          ),
           0
         )::int AS paid,
         COALESCE(
-          SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END),
+          SUM(
+            CASE
+              WHEN status = 'pending' THEN amount
+              ELSE 0
+            END
+          ),
           0
         )::int AS pending
       FROM invoices
+      WHERE user_id = ${userId}
     `,
   ]);
 
   return {
-    numberOfInvoices: invoiceCountResult[0].count,
-    numberOfCustomers: customerCountResult[0].count,
-    totalPaidInvoices: invoiceStatusResult[0].paid,
-    totalPendingInvoices: invoiceStatusResult[0].pending,
+    numberOfInvoices:
+      invoiceCountResult[0].count,
+    numberOfCustomers:
+      customerCountResult[0].count,
+    totalPaidInvoices:
+      invoiceStatusResult[0].paid,
+    totalPendingInvoices:
+      invoiceStatusResult[0].pending,
   };
 }
 
@@ -45,30 +80,54 @@ export type Revenue = {
   revenue: number;
 };
 
-export async function fetchRevenue(): Promise<Revenue[]> {
+export async function fetchRevenue(): Promise<
+  Revenue[]
+> {
   const sql = getSql();
+  const userId = await getAuthenticatedUserId();
 
   const data = await sql`
-    SELECT month, revenue
-    FROM revenue
-    ORDER BY CASE month
-      WHEN 'Jan' THEN 1
-      WHEN 'Feb' THEN 2
-      WHEN 'Mar' THEN 3
-      WHEN 'Apr' THEN 4
-      WHEN 'May' THEN 5
-      WHEN 'Jun' THEN 6
-      WHEN 'Jul' THEN 7
-      WHEN 'Aug' THEN 8
-      WHEN 'Sep' THEN 9
-      WHEN 'Oct' THEN 10
-      WHEN 'Nov' THEN 11
-      WHEN 'Dec' THEN 12
-    END
+    SELECT
+      EXTRACT(MONTH FROM date)::int
+        AS month_number,
+      COALESCE(SUM(amount), 0)::int
+        AS revenue_in_cents
+    FROM invoices
+    WHERE
+      user_id = ${userId}
+      AND status = 'paid'
+      AND EXTRACT(YEAR FROM date) =
+        EXTRACT(YEAR FROM CURRENT_DATE)
+    GROUP BY month_number
+    ORDER BY month_number
   `;
-  return data.map((item) => ({
-    month: String(item.month),
-    revenue: Number(item.revenue),
+
+  const monthlyTotals = new Map(
+    data.map((item) => [
+      Number(item.month_number),
+      Number(item.revenue_in_cents),
+    ]),
+  );
+
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+
+  return months.map((month, index) => ({
+    month,
+    revenue:
+      (monthlyTotals.get(index + 1) ?? 0) / 100,
   }));
 }
 
@@ -81,8 +140,11 @@ export type LatestInvoice = {
   status: "pending" | "paid";
 };
 
-export async function fetchLatestInvoices(): Promise<LatestInvoice[]> {
+export async function fetchLatestInvoices(): Promise<
+  LatestInvoice[]
+> {
   const sql = getSql();
+  const userId = await getAuthenticatedUserId();
 
   const data = await sql`
     SELECT
@@ -95,6 +157,7 @@ export async function fetchLatestInvoices(): Promise<LatestInvoice[]> {
     FROM invoices
     JOIN customers
       ON invoices.customer_id = customers.id
+    WHERE invoices.user_id = ${userId}
     ORDER BY invoices.date DESC
     LIMIT 5
   `;
@@ -106,7 +169,9 @@ export async function fetchLatestInvoices(): Promise<LatestInvoice[]> {
     imageUrl: String(invoice.image_url),
     date: String(invoice.date),
     status:
-      invoice.status === "paid" ? "paid" : "pending",
+      invoice.status === "paid"
+        ? "paid"
+        : "pending",
   }));
 }
 
@@ -129,7 +194,9 @@ export async function fetchFilteredInvoices(
   currentPage: number,
 ): Promise<InvoiceRow[]> {
   const sql = getSql();
-  const offset = (currentPage - 1) * INVOICES_PER_PAGE;
+  const userId = await getAuthenticatedUserId();
+  const offset =
+    (currentPage - 1) * INVOICES_PER_PAGE;
   const searchTerm = `%${query}%`;
 
   const data = await sql`
@@ -146,11 +213,14 @@ export async function fetchFilteredInvoices(
     JOIN customers
       ON invoices.customer_id = customers.id
     WHERE
-      customers.name ILIKE ${searchTerm}
-      OR customers.email ILIKE ${searchTerm}
-      OR invoices.status ILIKE ${searchTerm}
-      OR invoices.date::text ILIKE ${searchTerm}
-      OR invoices.amount::text ILIKE ${searchTerm}
+      invoices.user_id = ${userId}
+      AND (
+        customers.name ILIKE ${searchTerm}
+        OR customers.email ILIKE ${searchTerm}
+        OR invoices.status ILIKE ${searchTerm}
+        OR invoices.date::text ILIKE ${searchTerm}
+        OR invoices.amount::text ILIKE ${searchTerm}
+      )
     ORDER BY invoices.date DESC
     LIMIT ${INVOICES_PER_PAGE}
     OFFSET ${offset}
@@ -164,7 +234,9 @@ export async function fetchFilteredInvoices(
     imageUrl: String(invoice.image_url),
     amount: Number(invoice.amount),
     status:
-      invoice.status === "paid" ? "paid" : "pending",
+      invoice.status === "paid"
+        ? "paid"
+        : "pending",
     date: String(invoice.date),
   }));
 }
@@ -173,6 +245,7 @@ export async function fetchInvoicesPages(
   query: string,
 ): Promise<number> {
   const sql = getSql();
+  const userId = await getAuthenticatedUserId();
   const searchTerm = `%${query}%`;
 
   const data = await sql`
@@ -181,18 +254,20 @@ export async function fetchInvoicesPages(
     JOIN customers
       ON invoices.customer_id = customers.id
     WHERE
-      customers.name ILIKE ${searchTerm}
-      OR customers.email ILIKE ${searchTerm}
-      OR invoices.status ILIKE ${searchTerm}
-      OR invoices.date::text ILIKE ${searchTerm}
-      OR invoices.amount::text ILIKE ${searchTerm}
+      invoices.user_id = ${userId}
+      AND (
+        customers.name ILIKE ${searchTerm}
+        OR customers.email ILIKE ${searchTerm}
+        OR invoices.status ILIKE ${searchTerm}
+        OR invoices.date::text ILIKE ${searchTerm}
+        OR invoices.amount::text ILIKE ${searchTerm}
+      )
   `;
 
   return Math.ceil(
     Number(data[0].count) / INVOICES_PER_PAGE,
   );
 }
-
 
 export type CustomerOption = {
   id: string;
@@ -227,6 +302,7 @@ export async function fetchInvoiceById(
   id: string,
 ): Promise<InvoiceFormData | undefined> {
   const sql = getSql();
+  const userId = await getAuthenticatedUserId();
 
   const data = await sql`
     SELECT
@@ -235,7 +311,9 @@ export async function fetchInvoiceById(
       amount,
       status
     FROM invoices
-    WHERE id = ${id}
+    WHERE
+      id = ${id}
+      AND user_id = ${userId}
     LIMIT 1
   `;
 
@@ -250,6 +328,8 @@ export async function fetchInvoiceById(
     customerId: String(invoice.customer_id),
     amount: Number(invoice.amount),
     status:
-      invoice.status === "paid" ? "paid" : "pending",
+      invoice.status === "paid"
+        ? "paid"
+        : "pending",
   };
 }

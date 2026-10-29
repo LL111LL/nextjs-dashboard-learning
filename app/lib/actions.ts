@@ -4,7 +4,7 @@ import { neon } from "@neondatabase/serverless";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { signIn } from "@/auth";
+import { auth, signIn } from "@/auth";
 import { AuthError } from "next-auth";
 
 export type InvoiceActionState = {
@@ -37,6 +37,16 @@ export async function createInvoice(
     status: formData.get("status"),
   });
 
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return {
+      message: "登录状态已失效，请重新登录。",
+    };
+  }
+
+const userId = session.user.id;
+
   if (!result.success) {
     return {
       errors: result.error.flatten().fieldErrors,
@@ -57,10 +67,22 @@ export async function createInvoice(
   try {
     const sql = neon(process.env.DATABASE_URL);
 
-    await sql`
-      INSERT INTO invoices (customer_id, amount, status, date)
-      VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
-    `;
+  await sql`
+    INSERT INTO invoices (
+      customer_id,
+      amount,
+      status,
+      date,
+      user_id
+    )
+    VALUES (
+      ${customerId},
+      ${amountInCents},
+      ${status},
+      ${date},
+      ${userId}
+    )
+  `;
   } catch (error) {
     console.error("创建发票失败：", error);
 
@@ -68,7 +90,7 @@ export async function createInvoice(
       message: "数据库错误：创建发票失败。",
     };
   }
-
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard/invoices");
   redirect("/dashboard/invoices");
 }
@@ -78,6 +100,15 @@ export async function updateInvoice(
   _previousState: InvoiceActionState,
   formData: FormData,
 ): Promise<InvoiceActionState> {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return {
+      message: "登录状态已失效，请重新登录。",
+    };
+  }
+
+  const userId = session.user.id;
   const idResult = z.string().uuid().safeParse(id);
 
   if (!idResult.success) {
@@ -118,7 +149,7 @@ export async function updateInvoice(
         customer_id = ${customerId},
         amount = ${amountInCents},
         status = ${status}
-      WHERE id = ${invoiceId}
+      WHERE id = ${invoiceId} AND user_id = ${userId}
       RETURNING id
     `;
 
@@ -141,6 +172,13 @@ export async function updateInvoice(
 }
 
 export async function deleteInvoice(id: string) {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    throw new Error("登录状态已失效");
+  }
+
+  const userId = session.user.id;
   const idResult = z.string().uuid().safeParse(id);
 
   if (!idResult.success) {
@@ -155,7 +193,9 @@ export async function deleteInvoice(id: string) {
 
   const deletedInvoices = await sql`
     DELETE FROM invoices
-    WHERE id = ${idResult.data}
+    WHERE
+      id = ${idResult.data}
+      AND user_id = ${userId}
     RETURNING id
   `;
 

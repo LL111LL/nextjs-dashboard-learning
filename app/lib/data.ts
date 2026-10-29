@@ -367,6 +367,43 @@ export async function fetchCustomerSummaries(): Promise<
   }));
 }
 
+export type CustomerFormData = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export async function fetchCustomerById(
+  id: string,
+): Promise<CustomerFormData | undefined> {
+  const sql = getSql();
+  const userId = await getAuthenticatedUserId();
+
+  const data = await sql`
+    SELECT
+      id,
+      name,
+      email
+    FROM customers
+    WHERE
+      id = ${id}
+      AND owner_id = ${userId}
+    LIMIT 1
+  `;
+
+  const customer = data[0];
+
+  if (!customer) {
+    return undefined;
+  }
+
+  return {
+    id: String(customer.id),
+    name: String(customer.name),
+    email: String(customer.email),
+  };
+}
+
 export type InvoiceFormData = {
   id: string;
   customerId: string;

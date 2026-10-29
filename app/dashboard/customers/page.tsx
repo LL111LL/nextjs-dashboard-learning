@@ -46,6 +46,9 @@ async function CustomersTable() {
             <th className="px-4 py-3 font-medium">
               待收款
             </th>
+            <th className="px-4 py-3 text-right font-medium">
+              操作
+            </th>
           </tr>
         </thead>
 
@@ -98,6 +101,21 @@ async function CustomersTable() {
               <td className="px-4 py-3 font-medium text-yellow-700">
                 {formatCurrency(
                   customer.totalPending,
+                )}
+              </td>
+
+              <td className="px-4 py-3 text-right">
+                {customer.isSystem ? (
+                  <span className="text-sm text-zinc-400">
+                    不可编辑
+                  </span>
+                ) : (
+                  <Link
+                    href={`/dashboard/customers/${customer.id}/edit`}
+                    className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                  >
+                    编辑
+                  </Link>
                 )}
               </td>
             </tr>

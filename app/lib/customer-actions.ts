@@ -113,3 +113,101 @@ export async function createCustomer(
   revalidatePath("/dashboard/invoices/create");
   redirect("/dashboard/customers");
 }
+export async function updateCustomer(
+  id: string,
+  _previousState: CustomerActionState,
+  formData: FormData,
+): Promise<CustomerActionState> {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return {
+      message: "登录状态已失效，请重新登录。",
+    };
+  }
+
+  const idResult = z.string().uuid().safeParse(id);
+
+  if (!idResult.success) {
+    return {
+      message: "客户 ID 无效。",
+    };
+  }
+
+  const formResult = CustomerSchema.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email"),
+  });
+
+  if (!formResult.success) {
+    return {
+      errors: formResult.error.flatten().fieldErrors,
+      message: "更新客户失败，请检查表单内容。",
+    };
+  }
+
+  if (!process.env.DATABASE_URL) {
+    return {
+      message: "服务器没有配置数据库连接。",
+    };
+  }
+
+  const userId = session.user.id;
+  const customerId = idResult.data;
+  const { name, email } = formResult.data;
+
+  try {
+    const sql = neon(process.env.DATABASE_URL);
+
+    const duplicateCustomers = await sql`
+      SELECT id
+      FROM customers
+      WHERE
+        id <> ${customerId}
+        AND LOWER(email) = ${email}
+        AND (
+          owner_id IS NULL
+          OR owner_id = ${userId}
+        )
+      LIMIT 1
+    `;
+
+    if (duplicateCustomers.length > 0) {
+      return {
+        errors: {
+          email: ["该邮箱对应的客户已经存在。"],
+        },
+        message: "更新客户失败。",
+      };
+    }
+
+    const updatedCustomers = await sql`
+      UPDATE customers
+      SET
+        name = ${name},
+        email = ${email}
+      WHERE
+        id = ${customerId}
+        AND owner_id = ${userId}
+      RETURNING id
+    `;
+
+    if (updatedCustomers.length === 0) {
+      return {
+        message:
+          "找不到该客户，或者你没有编辑权限。",
+      };
+    }
+  } catch (error) {
+    console.error("更新客户失败：", error);
+
+    return {
+      message: "数据库错误：更新客户失败。",
+    };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/customers");
+  revalidatePath("/dashboard/invoices");
+  redirect("/dashboard/customers");
+}

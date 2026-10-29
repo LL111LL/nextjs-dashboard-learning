@@ -1,6 +1,7 @@
 import Image from "next/image";
 import clsx from "clsx";
 import { fetchLatestInvoices } from "../lib/data";
+import Link from "next/link";
 
 function formatCurrency(amountInCents: number) {
   return new Intl.NumberFormat("zh-CN", {
@@ -18,6 +19,20 @@ export default async function LatestInvoices() {
         最新发票
       </h2>
 
+    {invoices.length === 0 ? (
+      <div className="mt-4 rounded-lg bg-zinc-50 p-6 text-center">
+        <p className="text-zinc-500">
+          你还没有创建发票。
+        </p>
+
+        <Link
+          href="/dashboard/invoices/create"
+          className="mt-4 inline-flex rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+        >
+          创建第一张发票
+        </Link>
+      </div>
+    ) : (
       <div className="mt-4 divide-y divide-zinc-100">
         {invoices.map((invoice) => (
           <article
@@ -62,7 +77,7 @@ export default async function LatestInvoices() {
             </div>
           </article>
         ))}
-      </div>
+      </div>)}
     </section>
   );
 }

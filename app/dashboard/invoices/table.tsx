@@ -23,13 +23,26 @@ export default async function InvoicesTable({
     currentPage,
   );
 
-  if (invoices.length === 0) {
-    return (
-      <div className="mt-6 rounded-xl border border-zinc-200 bg-white p-8 text-center text-zinc-500">
-        没有找到符合条件的发票。
-      </div>
-    );
-  }
+if (invoices.length === 0) {
+  return (
+    <div className="mt-6 rounded-xl border border-zinc-200 bg-white p-8 text-center">
+      <p className="text-zinc-500">
+        {query
+          ? "没有找到符合条件的发票。"
+          : "你还没有创建发票。"}
+      </p>
+
+      {!query && (
+        <Link
+          href="/dashboard/invoices/create"
+          className="mt-4 inline-flex rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+        >
+          创建第一张发票
+        </Link>
+      )}
+    </div>
+  );
+}
 
   return (
     <div className="mt-6 overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import clsx from "clsx";
 
 const links = [
+  { name: "个人资料", href: "/dashboard/profile" },
   { name: "概览", href: "/dashboard" },
   { name: "客户", href: "/dashboard/customers" },
   { name: "发票", href: "/dashboard/invoices" },

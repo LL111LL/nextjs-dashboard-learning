@@ -1,6 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import { auth } from "@/auth";
-import {asc,eq,isNull,or,} from "drizzle-orm";
+import {and,asc,eq,isNull,or,} from "drizzle-orm";
+import {z} from "zod";
 
 import { db } from "@/app/db";
 import {customers as customersTable,} from "@/app/db/schema";
@@ -384,32 +385,30 @@ export type CustomerFormData = {
 export async function fetchCustomerById(
   id: string,
 ): Promise<CustomerFormData | undefined> {
-  const sql = getSql();
-  const userId = await getAuthenticatedUserId();
+  const idResult = z.string().uuid().safeParse(id);
 
-  const data = await sql`
-    SELECT
-      id,
-      name,
-      email
-    FROM customers
-    WHERE
-      id = ${id}
-      AND owner_id = ${userId}
-    LIMIT 1
-  `;
-
-  const customer = data[0];
-
-  if (!customer) {
+  if (!idResult.success) {
     return undefined;
   }
 
-  return {
-    id: String(customer.id),
-    name: String(customer.name),
-    email: String(customer.email),
-  };
+  const userId = await getAuthenticatedUserId();
+
+  const [customer] = await db
+    .select({
+      id: customersTable.id,
+      name: customersTable.name,
+      email: customersTable.email,
+    })
+    .from(customersTable)
+    .where(
+      and(
+        eq(customersTable.id, idResult.data),
+        eq(customersTable.ownerId, userId),
+      ),
+    )
+    .limit(1);
+
+  return customer;
 }
 
 export type InvoiceFormData = {

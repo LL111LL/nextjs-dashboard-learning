@@ -211,3 +211,108 @@ export async function updateCustomer(
   revalidatePath("/dashboard/invoices");
   redirect("/dashboard/customers");
 }
+
+export type DeleteCustomerState = {
+  success?: boolean;
+  message?: string | null;
+};
+
+export async function deleteCustomer(
+  id: string,
+  _previousState: DeleteCustomerState,
+  _formData: FormData,
+): Promise<DeleteCustomerState> {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return {
+      success: false,
+      message: "登录状态已失效，请重新登录。",
+    };
+  }
+
+  const idResult = z.string().uuid().safeParse(id);
+
+  if (!idResult.success) {
+    return {
+      success: false,
+      message: "客户 ID 无效。",
+    };
+  }
+
+  if (!process.env.DATABASE_URL) {
+    return {
+      success: false,
+      message: "服务器没有配置数据库连接。",
+    };
+  }
+
+  const userId = session.user.id;
+  const customerId = idResult.data;
+
+  try {
+    const sql = neon(process.env.DATABASE_URL);
+
+    const customers = await sql`
+      SELECT
+        customers.id,
+        EXISTS (
+          SELECT 1
+          FROM invoices
+          WHERE invoices.customer_id = customers.id
+        ) AS has_invoices
+      FROM customers
+      WHERE
+        customers.id = ${customerId}
+        AND customers.owner_id = ${userId}
+      LIMIT 1
+    `;
+
+    if (customers.length === 0) {
+      return {
+        success: false,
+        message:
+          "找不到该客户，或者你没有删除权限。",
+      };
+    }
+
+    if (customers[0].has_invoices) {
+      return {
+        success: false,
+        message:
+          "该客户仍有关联发票，请先处理相关发票。",
+      };
+    }
+
+    const deletedCustomers = await sql`
+      DELETE FROM customers
+      WHERE
+        id = ${customerId}
+        AND owner_id = ${userId}
+      RETURNING id
+    `;
+
+    if (deletedCustomers.length === 0) {
+      return {
+        success: false,
+        message: "客户删除失败。",
+      };
+    }
+  } catch (error) {
+    console.error("删除客户失败：", error);
+
+    return {
+      success: false,
+      message:
+        "数据库错误：客户可能仍被其他数据引用。",
+    };
+  }
+
+  revalidatePath("/dashboard/customers");
+  revalidatePath("/dashboard/invoices/create");
+
+  return {
+    success: true,
+    message: "客户已删除。",
+  };
+}

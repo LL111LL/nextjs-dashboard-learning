@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Suspense } from "react";
 import Link from "next/link";
 import { fetchCustomerSummaries } from "../../lib/data";
+import DeleteCustomerButton from "./delete-button";
 
 export const metadata: Metadata = {
   title: "客户",
@@ -110,12 +111,19 @@ async function CustomersTable() {
                     不可编辑
                   </span>
                 ) : (
-                  <Link
-                    href={`/dashboard/customers/${customer.id}/edit`}
-                    className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-                  >
-                    编辑
-                  </Link>
+              <div className="flex items-start justify-end gap-2">
+                <Link
+                  href={`/dashboard/customers/${customer.id}/edit`}
+                  className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  编辑
+                </Link>
+
+                <DeleteCustomerButton
+                  id={customer.id}
+                  name={customer.name}
+                />
+              </div>
                 )}
               </td>
             </tr>

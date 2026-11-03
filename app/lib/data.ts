@@ -1,10 +1,10 @@
 import { neon } from "@neondatabase/serverless";
 import { auth } from "@/auth";
-import {and,asc,eq,isNull,or,} from "drizzle-orm";
+import {and,asc,eq,isNull,or,sql as drizzleSql} from "drizzle-orm";
 import {z} from "zod";
 
 import { db } from "@/app/db";
-import {customers as customersTable,} from "@/app/db/schema";
+import {customers as customersTable, invoices as invoicesTable} from "@/app/db/schema";
 
 function getSql() {
   if (!process.env.DATABASE_URL) {
@@ -318,61 +318,81 @@ export type CustomerSummary = {
 export async function fetchCustomerSummaries(): Promise<
   CustomerSummary[]
 > {
-  const sql = getSql();
   const userId = await getAuthenticatedUserId();
 
-  const data = await sql`
-    SELECT
-      customers.id,
-      customers.name,
-      customers.email,
-      customers.image_url,
-      customers.owner_id,
-      COUNT(invoices.id)::int AS invoice_count,
-      COALESCE(
-        SUM(
-          CASE
-            WHEN invoices.status = 'paid'
-              THEN invoices.amount
-            ELSE 0
-          END
-        ),
-        0
-      )::int AS total_paid,
-      COALESCE(
-        SUM(
-          CASE
-            WHEN invoices.status = 'pending'
-              THEN invoices.amount
-            ELSE 0
-          END
-        ),
-        0
-      )::int AS total_pending
-    FROM customers
-    LEFT JOIN invoices
-      ON invoices.customer_id = customers.id
-      AND invoices.user_id = ${userId}
-    WHERE
-      customers.owner_id IS NULL
-      OR customers.owner_id = ${userId}
-    GROUP BY
-      customers.id,
-      customers.name,
-      customers.email,
-      customers.image_url
-    ORDER BY customers.name ASC
-  `;
+  const customers = await db
+    .select({
+      id: customersTable.id,
+      name: customersTable.name,
+      email: customersTable.email,
+      imageUrl: customersTable.imageUrl,
+      ownerId: customersTable.ownerId,
 
-  return data.map((customer) => ({
-    id: String(customer.id),
-    name: String(customer.name),
-    email: String(customer.email),
-    imageUrl: String(customer.image_url),
-    invoiceCount: Number(customer.invoice_count),
-    totalPaid: Number(customer.total_paid),
-    totalPending: Number(customer.total_pending),
-    isSystem: customer.owner_id === null,
+      invoiceCount: drizzleSql<number>`
+        COUNT(${invoicesTable.id})::int
+      `,
+
+      totalPaid: drizzleSql<number>`
+        COALESCE(
+          SUM(
+            CASE
+              WHEN ${invoicesTable.status} = 'paid'
+                THEN ${invoicesTable.amount}
+              ELSE 0
+            END
+          ),
+          0
+        )::int
+      `,
+
+      totalPending: drizzleSql<number>`
+        COALESCE(
+          SUM(
+            CASE
+              WHEN ${invoicesTable.status} = 'pending'
+                THEN ${invoicesTable.amount}
+              ELSE 0
+            END
+          ),
+          0
+        )::int
+      `,
+    })
+    .from(customersTable)
+    .leftJoin(
+      invoicesTable,
+      and(
+        eq(
+          invoicesTable.customerId,
+          customersTable.id,
+        ),
+        eq(invoicesTable.userId, userId),
+      ),
+    )
+    .where(
+      or(
+        isNull(customersTable.ownerId),
+        eq(customersTable.ownerId, userId),
+      ),
+    )
+    .groupBy(
+      customersTable.id,
+      customersTable.name,
+      customersTable.email,
+      customersTable.imageUrl,
+      customersTable.ownerId,
+    )
+    .orderBy(asc(customersTable.name));
+
+  return customers.map((customer) => ({
+    id: customer.id,
+    name: customer.name,
+    email: customer.email,
+    imageUrl: customer.imageUrl,
+    invoiceCount: Number(customer.invoiceCount),
+    totalPaid: Number(customer.totalPaid),
+    totalPending: Number(customer.totalPending),
+    isSystem: customer.ownerId === null,
   }));
 }
 

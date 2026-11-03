@@ -1,10 +1,16 @@
 "use server";
 
-import { neon } from "@neondatabase/serverless";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import {and,eq,isNull,ne,or,sql as drizzleSql,} from "drizzle-orm";
 
+import { db } from "@/app/db";
+import {
+  customers as customersTable,
+  invoices as invoicesTable,
+} from "@/app/db/schema";
 import { auth } from "@/auth";
 
 const CustomerSchema = z.object({
@@ -61,53 +67,53 @@ export async function createCustomer(
   const userId = session.user.id;
   const { name, email } = result.data;
 
-  try {
-    const sql = neon(process.env.DATABASE_URL);
+try {
+  const existingCustomers = await db
+    .select({
+      id: customersTable.id,
+    })
+    .from(customersTable)
+    .where(
+      and(
+        drizzleSql`
+          LOWER(${customersTable.email}) = ${email}
+        `,
+        or(
+          isNull(customersTable.ownerId),
+          eq(customersTable.ownerId, userId),
+        ),
+      ),
+    )
+    .limit(1);
 
-    const existingCustomers = await sql`
-      SELECT id
-      FROM customers
-      WHERE
-        LOWER(email) = ${email}
-        AND (
-          owner_id IS NULL
-          OR owner_id = ${userId}
-        )
-      LIMIT 1
-    `;
-
-    if (existingCustomers.length > 0) {
-      return {
-        errors: {
-          email: ["该邮箱对应的客户已经存在。"],
-        },
-        message: "创建客户失败。",
-      };
-    }
-
-    await sql`
-      INSERT INTO customers (
-        id,
-        name,
-        email,
-        image_url,
-        owner_id
-      )
-      VALUES (
-        ${crypto.randomUUID()},
-        ${name},
-        ${email},
-        ${"/globe.svg"},
-        ${userId}
-      )
-    `;
-  } catch (error) {
-    console.error("创建客户失败：", error);
-
+  if (existingCustomers.length > 0) {
     return {
-      message: "数据库错误：创建客户失败。",
+      errors: {
+        email: ["该邮箱对应的客户已经存在。"],
+      },
+      message: "创建客户失败。",
     };
   }
+
+  const newCustomer:
+    typeof customersTable.$inferInsert = {
+      id: crypto.randomUUID(),
+      name,
+      email,
+      imageUrl: "/globe.svg",
+      ownerId: userId,
+    };
+
+  await db
+    .insert(customersTable)
+    .values(newCustomer);
+} catch (error) {
+  console.error("创建客户失败：", error);
+
+  return {
+    message: "数据库错误：创建客户失败。",
+  };
+}
 
   revalidatePath("/dashboard/customers");
   revalidatePath("/dashboard/invoices/create");
@@ -156,55 +162,64 @@ export async function updateCustomer(
   const customerId = idResult.data;
   const { name, email } = formResult.data;
 
-  try {
-    const sql = neon(process.env.DATABASE_URL);
+try {
+  const duplicateCustomers = await db
+    .select({
+      id: customersTable.id,
+    })
+    .from(customersTable)
+    .where(
+      and(
+        ne(customersTable.id, customerId),
+        drizzleSql`
+          LOWER(${customersTable.email}) = ${email}
+        `,
+        or(
+          isNull(customersTable.ownerId),
+          eq(customersTable.ownerId, userId),
+        ),
+      ),
+    )
+    .limit(1);
 
-    const duplicateCustomers = await sql`
-      SELECT id
-      FROM customers
-      WHERE
-        id <> ${customerId}
-        AND LOWER(email) = ${email}
-        AND (
-          owner_id IS NULL
-          OR owner_id = ${userId}
-        )
-      LIMIT 1
-    `;
-
-    if (duplicateCustomers.length > 0) {
-      return {
-        errors: {
-          email: ["该邮箱对应的客户已经存在。"],
-        },
-        message: "更新客户失败。",
-      };
-    }
-
-    const updatedCustomers = await sql`
-      UPDATE customers
-      SET
-        name = ${name},
-        email = ${email}
-      WHERE
-        id = ${customerId}
-        AND owner_id = ${userId}
-      RETURNING id
-    `;
-
-    if (updatedCustomers.length === 0) {
-      return {
-        message:
-          "找不到该客户，或者你没有编辑权限。",
-      };
-    }
-  } catch (error) {
-    console.error("更新客户失败：", error);
-
+  if (duplicateCustomers.length > 0) {
     return {
-      message: "数据库错误：更新客户失败。",
+      errors: {
+        email: ["该邮箱对应的客户已经存在。"],
+      },
+      message: "更新客户失败。",
     };
   }
+
+  const updatedCustomers = await db
+    .update(customersTable)
+    .set({
+      name,
+      email,
+    })
+    .where(
+      and(
+        eq(customersTable.id, customerId),
+        eq(customersTable.ownerId, userId),
+      ),
+    )
+    .returning({
+      id: customersTable.id,
+    });
+
+  if (updatedCustomers.length === 0) {
+    return {
+      message:
+        "找不到该客户，或者你没有编辑权限。",
+    };
+  }
+} catch (error) {
+  console.error("更新客户失败：", error);
+
+  return {
+    message: "数据库错误：更新客户失败。",
+  };
+}
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/customers");
@@ -253,63 +268,73 @@ export async function deleteCustomer(
   const userId = session.user.id;
   const customerId = idResult.data;
 
-  try {
-    const sql = neon(process.env.DATABASE_URL);
+try {
+  const [customer] = await db
+    .select({
+      id: customersTable.id,
+    })
+    .from(customersTable)
+    .where(
+      and(
+        eq(customersTable.id, customerId),
+        eq(customersTable.ownerId, userId),
+      ),
+    )
+    .limit(1);
 
-    const customers = await sql`
-      SELECT
-        customers.id,
-        EXISTS (
-          SELECT 1
-          FROM invoices
-          WHERE invoices.customer_id = customers.id
-        ) AS has_invoices
-      FROM customers
-      WHERE
-        customers.id = ${customerId}
-        AND customers.owner_id = ${userId}
-      LIMIT 1
-    `;
-
-    if (customers.length === 0) {
-      return {
-        success: false,
-        message:
-          "找不到该客户，或者你没有删除权限。",
-      };
-    }
-
-    if (customers[0].has_invoices) {
-      return {
-        success: false,
-        message:
-          "该客户仍有关联发票，请先处理相关发票。",
-      };
-    }
-
-    const deletedCustomers = await sql`
-      DELETE FROM customers
-      WHERE
-        id = ${customerId}
-        AND owner_id = ${userId}
-      RETURNING id
-    `;
-
-    if (deletedCustomers.length === 0) {
-      return {
-        success: false,
-        message: "客户删除失败。",
-      };
-    }
-  } catch (error) {
-    console.error("删除客户失败：", error);
-
+  if (!customer) {
     return {
       success: false,
       message:
-        "数据库错误：客户可能仍被其他数据引用。",
+        "找不到该客户，或者你没有删除权限。",
     };
   }
+
+  const [relatedInvoice] = await db
+    .select({
+      id: invoicesTable.id,
+    })
+    .from(invoicesTable)
+    .where(
+      eq(invoicesTable.customerId, customerId),
+    )
+    .limit(1);
+
+  if (relatedInvoice) {
+    return {
+      success: false,
+      message:
+        "该客户仍有关联发票，请先处理相关发票。",
+    };
+  }
+
+  const deletedCustomers = await db
+    .delete(customersTable)
+    .where(
+      and(
+        eq(customersTable.id, customerId),
+        eq(customersTable.ownerId, userId),
+      ),
+    )
+    .returning({
+      id: customersTable.id,
+    });
+
+  if (deletedCustomers.length === 0) {
+    return {
+      success: false,
+      message: "客户删除失败。",
+    };
+  }
+} catch (error) {
+  console.error("删除客户失败：", error);
+
+  return {
+    success: false,
+    message:
+      "数据库错误：客户可能仍被其他数据引用。",
+  };
+}
 
   revalidatePath("/dashboard/customers");
   revalidatePath("/dashboard/invoices/create");

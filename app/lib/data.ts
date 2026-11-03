@@ -1,5 +1,9 @@
 import { neon } from "@neondatabase/serverless";
 import { auth } from "@/auth";
+import {asc,eq,isNull,or,} from "drizzle-orm";
+
+import { db } from "@/app/db";
+import {customers as customersTable,} from "@/app/db/schema";
 
 function getSql() {
   if (!process.env.DATABASE_URL) {
@@ -277,21 +281,25 @@ export type CustomerOption = {
 export async function fetchCustomers(): Promise<
   CustomerOption[]
 > {
-  const sql = getSql();
   const userId = await getAuthenticatedUserId();
 
-  const data = await sql`
-    SELECT id, name
-    FROM customers
-    WHERE
-      owner_id IS NULL
-      OR owner_id = ${userId}
-    ORDER BY name ASC
-  `;
+  const customers = await db
+    .select({
+      id: customersTable.id,
+      name: customersTable.name,
+    })
+    .from(customersTable)
+    .where(
+      or(
+        isNull(customersTable.ownerId),
+        eq(customersTable.ownerId, userId),
+      ),
+    )
+    .orderBy(asc(customersTable.name));
 
-  return data.map((customer) => ({
-    id: String(customer.id),
-    name: String(customer.name),
+  return customers.map((customer) => ({
+    id: customer.id,
+    name: customer.name,
   }));
 }
 

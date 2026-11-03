@@ -222,6 +222,9 @@ export async function deleteCustomer(
   _previousState: DeleteCustomerState,
   _formData: FormData,
 ): Promise<DeleteCustomerState> {
+  void _previousState;
+  void _formData;
+
   const session = await auth();
 
   if (!session?.user?.id) {

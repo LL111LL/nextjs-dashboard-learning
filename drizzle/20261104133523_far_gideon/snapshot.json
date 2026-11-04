@@ -1,0 +1,334 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "089a6c33-c4d8-48ee-826e-c9d3f9758917",
+  "prevIds": [
+    "d50f0cf7-f8ff-4215-8f99-4d9a779bfa09"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "team_members"
+      ],
+      "writes": [
+        "s|tbl|public.team_members",
+        "n|tbl|public.team_members",
+        "e|tbl|public.team_members",
+        "n|rel|public.team_members",
+        "n|type|public.team_members",
+        "n|rel|public.team_members_pkey",
+        "n|rel|public.team_members_team_id_user_id_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "team_members",
+        "team_members_team_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.team_members_team_id_idx",
+        "n|idx|public.team_members_team_id_idx",
+        "e|idx|public.team_members_team_id_idx",
+        "n|rel|public.team_members_team_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.team_members",
+        "n|sch|public",
+        "n|col|public.team_members.team_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "team_members",
+        "team_members_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.team_members_user_id_idx",
+        "n|idx|public.team_members_user_id_idx",
+        "e|idx|public.team_members_user_id_idx",
+        "n|rel|public.team_members_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.team_members",
+        "n|sch|public",
+        "n|col|public.team_members.user_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "team_members"
+      ],
+      "writes": [
+        "s|fk|public.team_members.team_members_team_id_fkey",
+        "n|fk|public.team_members.team_members_team_id_fkey",
+        "e|fk|public.team_members.team_members_team_id_fkey",
+        "n|con|public.team_members.team_members_team_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.team_members",
+        "n|sch|public",
+        "n|tbl|public.teams",
+        "n|sch|public",
+        "n|col|public.team_members.team_id",
+        "n|col|public.teams.id",
+        "e|uniqueness|public.teams.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "team_members"
+      ],
+      "writes": [
+        "s|fk|public.team_members.team_members_user_id_fkey",
+        "n|fk|public.team_members.team_members_user_id_fkey",
+        "e|fk|public.team_members.team_members_user_id_fkey",
+        "n|con|public.team_members.team_members_user_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.team_members",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.team_members.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "team_members",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_members",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "gen_random_uuid()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_members",
+        "name": "team_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_members",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_members",
+        "name": "role",
+        "type": "varchar(20)",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'member'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_members",
+        "name": "joined_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_members",
+        "name": "team_members_team_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "team_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_members",
+        "name": "team_members_user_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_members",
+        "name": "team_members_team_id_fkey",
+        "nameExplicit": true,
+        "columns": [
+          "team_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "teams",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_members",
+        "name": "team_members_user_id_fkey",
+        "nameExplicit": true,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_members",
+        "name": "team_members_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_members",
+        "name": "team_members_team_id_user_id_key",
+        "nameExplicit": true,
+        "columns": [
+          "team_id",
+          "user_id"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_members",
+        "name": "team_members_role_check",
+        "value": "\"role\" IN ('owner', 'member')",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

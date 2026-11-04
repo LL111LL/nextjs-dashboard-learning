@@ -74,3 +74,51 @@ export const teams = pgTable(
     index("teams_created_by_idx").on(table.createdBy),
   ],
 );
+
+export const teamMembers = pgTable(
+  "team_members",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+
+    teamId: uuid("team_id").notNull(),
+
+    userId: uuid("user_id").notNull(),
+
+    role: varchar({ length: 20 })
+      .default("member")
+      .notNull(),
+
+    joinedAt: timestamp("joined_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.teamId],
+      foreignColumns: [teams.id],
+      name: "team_members_team_id_fkey",
+    }).onDelete("cascade"),
+
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "team_members_user_id_fkey",
+    }).onDelete("cascade"),
+
+    unique("team_members_team_id_user_id_key").on(
+      table.teamId,
+      table.userId,
+    ),
+
+    index("team_members_team_id_idx").on(table.teamId),
+
+    index("team_members_user_id_idx").on(table.userId),
+
+    check(
+      "team_members_role_check",
+      sql`${table.role} IN ('owner', 'member')`,
+    ),
+  ],
+);

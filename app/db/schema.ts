@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, integer, text, date, index, foreignKey,  unique, check } from "drizzle-orm/pg-core"
+import { pgTable, uuid, varchar, integer, text, date,timestamp, index, foreignKey,  unique, check } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 
@@ -51,3 +51,26 @@ export const users = pgTable("users", {
 	password: text().notNull(),
 }, (table) => [
 	unique("users_email_key").on(table.email),]);
+
+export const teams = pgTable(
+  "teams",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    name: varchar({ length: 100 }).notNull(),
+    createdBy: uuid("created_by").notNull(),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [users.id],
+      name: "teams_created_by_fkey",
+    }).onDelete("cascade"),
+
+    index("teams_created_by_idx").on(table.createdBy),
+  ],
+);

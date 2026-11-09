@@ -73,14 +73,22 @@ async function TeamsList() {
         <tbody className="divide-y divide-zinc-100">
           {rows.map((team) => (
             <tr key={team.id}>
-            <td className="px-4 py-3 font-medium">
-            <Link
-                href={`/dashboard/teams/${team.id}`}
-                className="text-zinc-900 hover:text-blue-600 hover:underline"
+        <td className="px-4 py-3">
+          <Link
+            href={`/dashboard/teams/${team.id}`}
+            aria-label={`查看团队：${team.name}`}
+            className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 font-semibold text-blue-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-100 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            <span>{team.name}</span>
+
+            <span
+              aria-hidden="true"
+              className="text-blue-500"
             >
-                {team.name}
-            </Link>
-            </td>
+              查看详情 →
+            </span>
+          </Link>
+        </td>
 
               <td className="px-4 py-3">
                 <span className="inline-flex rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">

@@ -146,32 +146,34 @@ async function TeamDetails({
         </span>
       </div>
 {membership.role === "owner" && (
-  <section className="mt-8">
-    <h2 className="text-xl font-semibold">
-      团队设置
-    </h2>
+  <div className="mt-8 grid items-start gap-6 lg:grid-cols-2">
+    <section className="min-w-0">
+      <h2 className="text-xl font-semibold">
+        团队设置
+      </h2>
 
-    <p className="mt-2 text-sm text-zinc-600">
-      只有团队所有者可以修改团队名称。
-    </p>
+      <p className="mt-2 text-sm text-zinc-600">
+        只有团队所有者可以修改团队名称。
+      </p>
 
-    <RenameTeamForm
-      teamId={teamId}
-      currentName={membership.teamName}
-    />
-  </section>
-)}
-{membership.role === "owner" && (
-  <section className="mt-8">
-    <h2 className="text-xl font-semibold">
-      添加成员
-    </h2>
-    <p className="mt-2 text-sm text-zinc-600">
-      只能添加已经注册过账号的用户。
-    </p>
+      <RenameTeamForm
+        teamId={teamId}
+        currentName={membership.teamName}
+      />
+    </section>
 
-    <AddMemberForm teamId={teamId} />
-  </section>
+    <section className="min-w-0">
+      <h2 className="text-xl font-semibold">
+        添加成员
+      </h2>
+
+      <p className="mt-2 text-sm text-zinc-600">
+        只能添加已经注册过账号的用户。
+      </p>
+
+      <AddMemberForm teamId={teamId} />
+    </section>
+  </div>
 )}
 
       <section className="mt-8">

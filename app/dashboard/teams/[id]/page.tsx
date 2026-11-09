@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -10,6 +10,7 @@ import {
   teamMembers,
   teams,
   users,
+  activityLogs,
 } from "@/app/db/schema";
 import { auth } from "@/auth";
 import RemoveMemberButton from "./remove-member-button";
@@ -83,6 +84,24 @@ async function TeamDetails({
       asc(teamMembers.joinedAt),
       asc(users.name),
     );
+
+  const logs = await db
+    .select({
+      id: activityLogs.id,
+      action: activityLogs.action,
+      details: activityLogs.details,
+      createdAt: activityLogs.createdAt,
+      userName: users.name,
+      userEmail: users.email,
+    })
+    .from(activityLogs)
+    .leftJoin(
+      users,
+      eq(activityLogs.userId, users.id),
+    )
+    .where(eq(activityLogs.teamId, teamId))
+    .orderBy(desc(activityLogs.createdAt))
+    .limit(20);
 
   return (
     <>
@@ -198,6 +217,52 @@ async function TeamDetails({
           </table>
         </div>
       </section>
+      <section className="mt-8">
+  <h2 className="text-xl font-semibold">
+    最近活动
+  </h2>
+
+  {logs.length === 0 ? (
+    <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-6 text-zinc-500">
+      暂无活动记录。
+    </div>
+  ) : (
+    <ol className="mt-4 divide-y divide-zinc-100 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+      {logs.map((log) => (
+        <li
+          key={log.id}
+          className="flex flex-col gap-2 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-zinc-900">
+                {log.userName ??
+                  log.userEmail ??
+                  "已删除用户"}
+              </span>
+
+              <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600">
+                {log.action}
+              </span>
+            </div>
+
+            <p className="mt-1 text-sm text-zinc-600">
+              {log.details ?? "执行了团队操作"}
+            </p>
+          </div>
+
+          <time className="shrink-0 text-sm text-zinc-500">
+            {new Intl.DateTimeFormat("zh-CN", {
+              dateStyle: "medium",
+              timeStyle: "short",
+              timeZone: "Asia/Shanghai",
+            }).format(log.createdAt)}
+          </time>
+        </li>
+      ))}
+    </ol>
+  )}
+</section>
     </>
   );
 }

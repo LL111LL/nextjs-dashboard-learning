@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { db } from "@/app/db";
 import {
+  activityLogs,
   teamMembers,
   teams,
   users,
@@ -70,6 +71,13 @@ export async function createTeam(
         teamId,
         userId,
         role: "owner",
+      }),
+
+      db.insert(activityLogs).values({
+        teamId,
+        userId,
+        action: "team.created",
+        details: `创建了团队“${result.data.name}”`,
       }),
     ]);
   } catch (error) {
@@ -223,11 +231,20 @@ export async function addTeamMember(
       };
     }
 
-    await db.insert(teamMembers).values({
-      teamId: validTeamId,
-      userId: newMember.id,
-      role: "member",
-    });
+    await db.batch([
+      db.insert(teamMembers).values({
+        teamId: validTeamId,
+        userId: newMember.id,
+        role: "member",
+      }),
+
+      db.insert(activityLogs).values({
+        teamId: validTeamId,
+        userId: session.user.id,
+        action: "member.added",
+        details: `添加了成员 ${email}`,
+      }),
+    ]);
   } catch (error) {
     console.error("添加团队成员失败：", error);
 
@@ -320,29 +337,80 @@ export async function removeTeamMember(
 
     // 只允许删除 role=member 的记录。
     // 即使传入 owner 的用户 ID，也不会删除所有者。
-    const removedMemberships = await db
-      .delete(teamMembers)
-      .where(
-        and(
-          eq(teamMembers.teamId, validTeamId),
-          eq(
-            teamMembers.userId,
-            validMemberUserId,
-          ),
-          eq(teamMembers.role, "member"),
-        ),
-      )
-      .returning({
-        id: teamMembers.id,
-      });
+// 先取得被移除成员的信息，用于日志说明。
+const [targetMember] = await db
+  .select({
+    email: users.email,
+  })
+  .from(teamMembers)
+  .innerJoin(
+    users,
+    eq(teamMembers.userId, users.id),
+  )
+  .where(
+    and(
+      eq(teamMembers.teamId, validTeamId),
+      eq(
+        teamMembers.userId,
+        validMemberUserId,
+      ),
+      eq(teamMembers.role, "member"),
+    ),
+  )
+  .limit(1);
 
-    if (removedMemberships.length === 0) {
-      return {
-        success: false,
-        message:
-          "找不到该普通成员，或者该成员不能被移除。",
-      };
-    }
+if (!targetMember) {
+  return {
+    success: false,
+    message:
+      "找不到该普通成员，或者该成员不能被移除。",
+  };
+}
+
+const details =
+  `移除了成员 ${targetMember.email}`;
+
+// 删除成功后，才通过 removed_membership 的结果插入日志。
+// 两个操作属于同一条 PostgreSQL 语句。
+const result = await db.execute(drizzleSql`
+  WITH removed_membership AS (
+    DELETE FROM ${teamMembers}
+    WHERE
+      ${teamMembers.teamId} = ${validTeamId}
+      AND
+      ${teamMembers.userId} = ${validMemberUserId}
+      AND
+      ${teamMembers.role} = 'member'
+      AND EXISTS (
+        SELECT 1
+        FROM "team_members" AS actor_membership
+        WHERE
+          actor_membership."team_id" = ${validTeamId}
+          AND
+          actor_membership."user_id" = ${session.user.id}
+          AND
+          actor_membership."role" = 'owner'
+      )
+    RETURNING 1
+  )
+  INSERT INTO ${activityLogs}
+    ("team_id", "user_id", "action", "details")
+  SELECT
+    ${validTeamId}::uuid,
+    ${session.user.id}::uuid,
+    'member.removed',
+    ${details}
+  FROM removed_membership
+  RETURNING "id"
+`);
+
+if (result.rows.length === 0) {
+  return {
+    success: false,
+    message:
+      "成员未被移除，请刷新页面后重试。",
+  };
+}
   } catch (error) {
     console.error("移除团队成员失败：", error);
 

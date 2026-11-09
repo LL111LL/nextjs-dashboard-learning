@@ -429,3 +429,150 @@ if (result.rows.length === 0) {
     message: "成员已移除。",
   };
 }
+
+const UpdateTeamNameSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, "团队名称至少需要 2 个字符。")
+    .max(100, "团队名称不能超过 100 个字符。"),
+});
+
+export type UpdateTeamNameState = {
+  success?: boolean;
+  errors?: {
+    name?: string[];
+  };
+  message?: string | null;
+};
+
+export async function updateTeamName(
+  teamId: string,
+  _previousState: UpdateTeamNameState,
+  formData: FormData,
+): Promise<UpdateTeamNameState> {
+  void _previousState;
+
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return {
+      success: false,
+      message: "登录状态已失效，请重新登录。",
+    };
+  }
+
+  const teamIdResult = z
+    .string()
+    .uuid()
+    .safeParse(teamId);
+
+  if (!teamIdResult.success) {
+    return {
+      success: false,
+      message: "团队 ID 无效。",
+    };
+  }
+
+  const formResult =
+    UpdateTeamNameSchema.safeParse({
+      name: formData.get("name"),
+    });
+
+  if (!formResult.success) {
+    return {
+      success: false,
+      errors:
+        formResult.error.flatten().fieldErrors,
+      message: "修改失败，请检查团队名称。",
+    };
+  }
+
+  const validTeamId = teamIdResult.data;
+  const newName = formResult.data.name;
+
+  try {
+    const [ownerMembership] = await db
+      .select({
+        id: teamMembers.id,
+      })
+      .from(teamMembers)
+      .where(
+        and(
+          eq(teamMembers.teamId, validTeamId),
+          eq(
+            teamMembers.userId,
+            session.user.id,
+          ),
+          eq(teamMembers.role, "owner"),
+        ),
+      )
+      .limit(1);
+
+    if (!ownerMembership) {
+      return {
+        success: false,
+        message: "只有团队所有者可以修改名称。",
+      };
+    }
+
+    const [currentTeam] = await db
+      .select({
+        name: teams.name,
+      })
+      .from(teams)
+      .where(eq(teams.id, validTeamId))
+      .limit(1);
+
+    if (!currentTeam) {
+      return {
+        success: false,
+        message: "找不到该团队。",
+      };
+    }
+
+    if (currentTeam.name === newName) {
+      return {
+        success: false,
+        errors: {
+          name: ["新名称与当前名称相同。"],
+        },
+        message: "团队名称没有变化。",
+      };
+    }
+
+    await db.batch([
+      db
+        .update(teams)
+        .set({
+          name: newName,
+        })
+        .where(eq(teams.id, validTeamId)),
+
+      db.insert(activityLogs).values({
+        teamId: validTeamId,
+        userId: session.user.id,
+        action: "team.renamed",
+        details:
+          `将团队名称从“${currentTeam.name}”修改为“${newName}”`,
+      }),
+    ]);
+  } catch (error) {
+    console.error("修改团队名称失败：", error);
+
+    return {
+      success: false,
+      message: "数据库错误：修改团队名称失败。",
+    };
+  }
+
+  revalidatePath("/dashboard/teams");
+  revalidatePath(
+    `/dashboard/teams/${validTeamId}`,
+  );
+
+  return {
+    success: true,
+    message: "团队名称修改成功。",
+  };
+}

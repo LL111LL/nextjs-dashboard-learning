@@ -14,6 +14,8 @@ import {
 } from "@/app/db/schema";
 import { auth } from "@/auth";
 import RemoveMemberButton from "./remove-member-button";
+import RenameTeamForm from "./rename-team-form";
+
 export const metadata: Metadata = {
   title: "团队详情",
 };
@@ -146,9 +148,24 @@ async function TeamDetails({
 {membership.role === "owner" && (
   <section className="mt-8">
     <h2 className="text-xl font-semibold">
-      添加成员
+      团队设置
     </h2>
 
+    <p className="mt-2 text-sm text-zinc-600">
+      只有团队所有者可以修改团队名称。
+    </p>
+
+    <RenameTeamForm
+      teamId={teamId}
+      currentName={membership.teamName}
+    />
+  </section>
+)}
+{membership.role === "owner" && (
+  <section className="mt-8">
+    <h2 className="text-xl font-semibold">
+      添加成员
+    </h2>
     <p className="mt-2 text-sm text-zinc-600">
       只能添加已经注册过账号的用户。
     </p>

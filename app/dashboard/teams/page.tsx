@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { desc, eq } from "drizzle-orm";
 import { Suspense } from "react";
-
+import Link from "next/link";
 import { db } from "@/app/db";
 import {
   teamMembers,
@@ -73,9 +73,14 @@ async function TeamsList() {
         <tbody className="divide-y divide-zinc-100">
           {rows.map((team) => (
             <tr key={team.id}>
-              <td className="px-4 py-3 font-medium text-zinc-900">
+            <td className="px-4 py-3 font-medium">
+            <Link
+                href={`/dashboard/teams/${team.id}`}
+                className="text-zinc-900 hover:text-blue-600 hover:underline"
+            >
                 {team.name}
-              </td>
+            </Link>
+            </td>
 
               <td className="px-4 py-3">
                 <span className="inline-flex rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">

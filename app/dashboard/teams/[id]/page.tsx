@@ -12,7 +12,7 @@ import {
   users,
 } from "@/app/db/schema";
 import { auth } from "@/auth";
-
+import RemoveMemberButton from "./remove-member-button";
 export const metadata: Metadata = {
   title: "团队详情",
 };
@@ -156,6 +156,9 @@ async function TeamDetails({
                 <th className="px-4 py-3 font-medium">
                   角色
                 </th>
+                <th className="px-4 py-3 text-right font-medium">
+                  操作
+                </th>
               </tr>
             </thead>
 
@@ -175,6 +178,20 @@ async function TeamDetails({
                       ? "所有者"
                       : "成员"}
                   </td>
+                  <td className="px-4 py-3 text-right">
+                  {membership.role === "owner" &&
+                  member.role === "member" ? (
+                    <RemoveMemberButton
+                      teamId={teamId}
+                      memberUserId={member.id}
+                      memberName={member.name}
+                    />
+                  ) : (
+                    <span className="text-sm text-zinc-400">
+                      —
+                    </span>
+                  )}
+                </td>
                 </tr>
               ))}
             </tbody>

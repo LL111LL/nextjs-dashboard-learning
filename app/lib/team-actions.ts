@@ -246,3 +246,118 @@ export async function addTeamMember(
     message: "成员添加成功。",
   };
 }
+
+export type RemoveTeamMemberState = {
+  success?: boolean;
+  message?: string | null;
+};
+
+export async function removeTeamMember(
+  teamId: string,
+  memberUserId: string,
+  _previousState: RemoveTeamMemberState,
+  _formData: FormData,
+): Promise<RemoveTeamMemberState> {
+  void _previousState;
+  void _formData;
+
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return {
+      success: false,
+      message: "登录状态已失效，请重新登录。",
+    };
+  }
+
+  const idsResult = z
+    .object({
+      teamId: z.string().uuid(),
+      memberUserId: z.string().uuid(),
+    })
+    .safeParse({
+      teamId,
+      memberUserId,
+    });
+
+  if (!idsResult.success) {
+    return {
+      success: false,
+      message: "团队或成员 ID 无效。",
+    };
+  }
+
+  const {
+    teamId: validTeamId,
+    memberUserId: validMemberUserId,
+  } = idsResult.data;
+
+  try {
+    // 服务端确认操作者确实是该团队的 owner。
+    const [ownerMembership] = await db
+      .select({
+        id: teamMembers.id,
+      })
+      .from(teamMembers)
+      .where(
+        and(
+          eq(teamMembers.teamId, validTeamId),
+          eq(
+            teamMembers.userId,
+            session.user.id,
+          ),
+          eq(teamMembers.role, "owner"),
+        ),
+      )
+      .limit(1);
+
+    if (!ownerMembership) {
+      return {
+        success: false,
+        message: "只有团队所有者可以移除成员。",
+      };
+    }
+
+    // 只允许删除 role=member 的记录。
+    // 即使传入 owner 的用户 ID，也不会删除所有者。
+    const removedMemberships = await db
+      .delete(teamMembers)
+      .where(
+        and(
+          eq(teamMembers.teamId, validTeamId),
+          eq(
+            teamMembers.userId,
+            validMemberUserId,
+          ),
+          eq(teamMembers.role, "member"),
+        ),
+      )
+      .returning({
+        id: teamMembers.id,
+      });
+
+    if (removedMemberships.length === 0) {
+      return {
+        success: false,
+        message:
+          "找不到该普通成员，或者该成员不能被移除。",
+      };
+    }
+  } catch (error) {
+    console.error("移除团队成员失败：", error);
+
+    return {
+      success: false,
+      message: "数据库错误：移除成员失败。",
+    };
+  }
+
+  revalidatePath(
+    `/dashboard/teams/${validTeamId}`,
+  );
+
+  return {
+    success: true,
+    message: "成员已移除。",
+  };
+}

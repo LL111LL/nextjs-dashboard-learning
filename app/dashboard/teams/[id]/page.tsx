@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
-
+import AddMemberForm from "./add-member-form";
 import { db } from "@/app/db";
 import {
   teamMembers,
@@ -124,6 +124,19 @@ async function TeamDetails({
             : "成员"}
         </span>
       </div>
+{membership.role === "owner" && (
+  <section className="mt-8">
+    <h2 className="text-xl font-semibold">
+      添加成员
+    </h2>
+
+    <p className="mt-2 text-sm text-zinc-600">
+      只能添加已经注册过账号的用户。
+    </p>
+
+    <AddMemberForm teamId={teamId} />
+  </section>
+)}
 
       <section className="mt-8">
         <h2 className="text-xl font-semibold">

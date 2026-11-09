@@ -1,0 +1,332 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "79fc0290-7dba-4776-b560-82bf0b43920d",
+  "prevIds": [
+    "089a6c33-c4d8-48ee-826e-c9d3f9758917"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "activity_logs"
+      ],
+      "writes": [
+        "s|tbl|public.activity_logs",
+        "n|tbl|public.activity_logs",
+        "e|tbl|public.activity_logs",
+        "n|rel|public.activity_logs",
+        "n|type|public.activity_logs",
+        "n|rel|public.activity_logs_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "activity_logs",
+        "activity_logs_team_created_at_idx"
+      ],
+      "writes": [
+        "s|idx|public.activity_logs_team_created_at_idx",
+        "n|idx|public.activity_logs_team_created_at_idx",
+        "e|idx|public.activity_logs_team_created_at_idx",
+        "n|rel|public.activity_logs_team_created_at_idx"
+      ],
+      "reads": [
+        "n|tbl|public.activity_logs",
+        "n|sch|public",
+        "n|col|public.activity_logs.team_id",
+        "n|col|public.activity_logs.created_at"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "activity_logs",
+        "activity_logs_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.activity_logs_user_id_idx",
+        "n|idx|public.activity_logs_user_id_idx",
+        "e|idx|public.activity_logs_user_id_idx",
+        "n|rel|public.activity_logs_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.activity_logs",
+        "n|sch|public",
+        "n|col|public.activity_logs.user_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "activity_logs"
+      ],
+      "writes": [
+        "s|fk|public.activity_logs.activity_logs_team_id_fkey",
+        "n|fk|public.activity_logs.activity_logs_team_id_fkey",
+        "e|fk|public.activity_logs.activity_logs_team_id_fkey",
+        "n|con|public.activity_logs.activity_logs_team_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.activity_logs",
+        "n|sch|public",
+        "n|tbl|public.teams",
+        "n|sch|public",
+        "n|col|public.activity_logs.team_id",
+        "n|col|public.teams.id",
+        "e|uniqueness|public.teams.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "activity_logs"
+      ],
+      "writes": [
+        "s|fk|public.activity_logs.activity_logs_user_id_fkey",
+        "n|fk|public.activity_logs.activity_logs_user_id_fkey",
+        "e|fk|public.activity_logs.activity_logs_user_id_fkey",
+        "n|con|public.activity_logs.activity_logs_user_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.activity_logs",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.activity_logs.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "activity_logs",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "activity_logs",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "gen_random_uuid()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "activity_logs",
+        "name": "team_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "activity_logs",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "activity_logs",
+        "name": "action",
+        "type": "varchar(100)",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "activity_logs",
+        "name": "details",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "activity_logs",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "activity_logs",
+        "name": "activity_logs_team_created_at_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "team_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "created_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "activity_logs",
+        "name": "activity_logs_user_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "activity_logs",
+        "name": "activity_logs_team_id_fkey",
+        "nameExplicit": true,
+        "columns": [
+          "team_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "teams",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "activity_logs",
+        "name": "activity_logs_user_id_fkey",
+        "nameExplicit": true,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "activity_logs",
+        "name": "activity_logs_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

@@ -122,3 +122,46 @@ export const teamMembers = pgTable(
     ),
   ],
 );
+
+export const activityLogs = pgTable(
+  "activity_logs",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+
+    teamId: uuid("team_id").notNull(),
+
+    userId: uuid("user_id"),
+
+    action: varchar({ length: 100 }).notNull(),
+
+    details: text(),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.teamId],
+      foreignColumns: [teams.id],
+      name: "activity_logs_team_id_fkey",
+    }).onDelete("cascade"),
+
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "activity_logs_user_id_fkey",
+    }).onDelete("set null"),
+
+    index("activity_logs_team_created_at_idx").on(
+      table.teamId,
+      table.createdAt,
+    ),
+
+    index("activity_logs_user_id_idx").on(
+      table.userId,
+    ),
+  ],
+);

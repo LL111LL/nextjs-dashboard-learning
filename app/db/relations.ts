@@ -16,6 +16,13 @@ export const relations = defineRelations(schema, (r) => ({
 		invoices: r.many.invoices(),
 	},
 	users: {
+		teamsCreated: r.many.teams({
+		alias: "teams_createdBy_users_id",
+		}),
+
+		teamMemberships: r.many.teamMembers({
+		alias: "teamMembers_userId_users_id",
+		}),
 		customersOwnerId: r.many.customers({
 			alias: "customers_ownerId_users_id"
 		}),
@@ -34,4 +41,29 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.users.id
 		}),
 	},
+	teams: {
+		creator: r.one.users({
+			from: r.teams.createdBy,
+			to: r.users.id,
+			alias: "teams_createdBy_users_id",
+		}),
+
+		members: r.many.teamMembers({
+			alias: "teamMembers_teamId_teams_id",
+		}),
+		},
+
+	teamMembers: {
+		team: r.one.teams({
+			from: r.teamMembers.teamId,
+			to: r.teams.id,
+			alias: "teamMembers_teamId_teams_id",
+		}),
+
+		user: r.one.users({
+			from: r.teamMembers.userId,
+			to: r.users.id,
+			alias: "teamMembers_userId_users_id",
+		}),
+		},
 }))

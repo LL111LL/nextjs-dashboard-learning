@@ -165,3 +165,65 @@ export const activityLogs = pgTable(
     ),
   ],
 );
+
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+
+    teamId: uuid("team_id").notNull(),
+
+    name: varchar({ length: 150 }).notNull(),
+
+    description: text(),
+
+    status: varchar({ length: 20 })
+      .default("active")
+      .notNull(),
+
+    createdBy: uuid("created_by"),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.teamId],
+      foreignColumns: [teams.id],
+      name: "projects_team_id_fkey",
+    }).onDelete("cascade"),
+
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [users.id],
+      name: "projects_created_by_fkey",
+    }).onDelete("set null"),
+
+    index("projects_team_id_idx").on(
+      table.teamId,
+    ),
+
+    index("projects_team_status_idx").on(
+      table.teamId,
+      table.status,
+    ),
+
+    check(
+      "projects_status_check",
+      sql`${table.status} IN (
+        'active',
+        'completed',
+        'archived'
+      )`,
+    ),
+  ],
+);

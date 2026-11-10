@@ -35,6 +35,10 @@ export const relations = defineRelations(schema, (r) => ({
 		activityLogs: r.many.activityLogs({
 		alias: "activityLogs_userId_users_id",
 		}),
+
+		projectsCreated: r.many.projects({
+		alias: "projects_createdBy_users_id",
+		}),
 	},
 	invoices: {
 		customer: r.one.customers({
@@ -59,6 +63,10 @@ export const relations = defineRelations(schema, (r) => ({
 
 		activityLogs: r.many.activityLogs({
 			alias: "activityLogs_teamId_teams_id",
+		}),
+
+		projects: r.many.projects({
+		alias: "projects_teamId_teams_id",
 		}),
 		},
 
@@ -88,4 +96,18 @@ export const relations = defineRelations(schema, (r) => ({
 			alias: "activityLogs_userId_users_id",
 		}),
 		},
+
+		projects: {
+			team: r.one.teams({
+				from: r.projects.teamId,
+				to: r.teams.id,
+				alias: "projects_teamId_teams_id",
+			}),
+
+			creator: r.one.users({
+				from: r.projects.createdBy,
+				to: r.users.id,
+				alias: "projects_createdBy_users_id",
+			}),
+			},
 }))

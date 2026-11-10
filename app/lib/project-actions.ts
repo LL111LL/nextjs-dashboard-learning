@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql as drizzleSql} from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -473,5 +473,159 @@ export async function updateProject(
   return {
     success: true,
     message: "项目更新成功。",
+  };
+}
+
+export type DeleteProjectState = {
+  success?: boolean;
+  message?: string | null;
+};
+
+export async function deleteProject(
+  teamId: string,
+  projectId: string,
+  _previousState: DeleteProjectState,
+  _formData: FormData,
+): Promise<DeleteProjectState> {
+  void _previousState;
+  void _formData;
+
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return {
+      success: false,
+      message: "登录状态已失效，请重新登录。",
+    };
+  }
+
+  const idsResult = z
+    .object({
+      teamId: z.string().uuid(),
+      projectId: z.string().uuid(),
+    })
+    .safeParse({
+      teamId,
+      projectId,
+    });
+
+  if (!idsResult.success) {
+    return {
+      success: false,
+      message: "团队或项目 ID 无效。",
+    };
+  }
+
+  const {
+    teamId: validTeamId,
+    projectId: validProjectId,
+  } = idsResult.data;
+
+  try {
+    // 提前检查权限，用于返回清晰的错误消息。
+    const [ownerMembership] = await db
+      .select({
+        id: teamMembers.id,
+      })
+      .from(teamMembers)
+      .where(
+        and(
+          eq(teamMembers.teamId, validTeamId),
+          eq(
+            teamMembers.userId,
+            session.user.id,
+          ),
+          eq(teamMembers.role, "owner"),
+        ),
+      )
+      .limit(1);
+
+    if (!ownerMembership) {
+      return {
+        success: false,
+        message: "只有团队所有者可以删除项目。",
+      };
+    }
+
+    const [currentProject] = await db
+      .select({
+        name: projects.name,
+      })
+      .from(projects)
+      .where(
+        and(
+          eq(projects.id, validProjectId),
+          eq(projects.teamId, validTeamId),
+        ),
+      )
+      .limit(1);
+
+    if (!currentProject) {
+      return {
+        success: false,
+        message: "找不到该团队项目。",
+      };
+    }
+
+    const details =
+      `删除了项目“${currentProject.name}”`;
+
+    // 只有删除真正发生时，才插入活动日志。
+    const result = await db.execute(drizzleSql`
+      WITH deleted_project AS (
+        DELETE FROM ${projects}
+        WHERE
+          ${projects.id} = ${validProjectId}
+          AND
+          ${projects.teamId} = ${validTeamId}
+          AND EXISTS (
+            SELECT 1
+            FROM "team_members" AS actor_membership
+            WHERE
+              actor_membership."team_id" = ${validTeamId}
+              AND
+              actor_membership."user_id" = ${session.user.id}
+              AND
+              actor_membership."role" = 'owner'
+          )
+        RETURNING 1
+      )
+      INSERT INTO ${activityLogs}
+        ("team_id", "user_id", "action", "details")
+      SELECT
+        ${validTeamId}::uuid,
+        ${session.user.id}::uuid,
+        'project.deleted',
+        ${details}
+      FROM deleted_project
+      RETURNING "id"
+    `);
+
+    if (result.rows.length === 0) {
+      return {
+        success: false,
+        message:
+          "项目未被删除，请刷新页面后重试。",
+      };
+    }
+  } catch (error) {
+    console.error("删除团队项目失败：", error);
+
+    return {
+      success: false,
+      message: "数据库错误：删除项目失败。",
+    };
+  }
+
+  revalidatePath(
+    `/dashboard/teams/${validTeamId}/projects`,
+  );
+  revalidatePath(
+    `/dashboard/teams/${validTeamId}`,
+  );
+
+  return {
+    success: true,
+    message: "项目已删除。",
   };
 }

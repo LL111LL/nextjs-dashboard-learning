@@ -20,6 +20,7 @@ import { auth } from "@/auth";
 
 import CreateProjectForm from "./create-project-form";
 import ProjectStatusActions from "./project-status-actions";
+import DeleteProjectButton from "./delete-project-button";
 
 export const metadata: Metadata = {
   title: "团队项目",
@@ -172,6 +173,13 @@ async function TeamProjects({
     >
       编辑项目
     </Link>
+    {membership.role === "owner" && (
+    <DeleteProjectButton
+        teamId={teamId}
+        projectId={project.id}
+        projectName={project.name}
+    />
+    )}
   </div>
 </div>
 

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { and, asc, desc, eq, } from "drizzle-orm";
+import { and, asc, desc, eq, count,} from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -24,13 +24,33 @@ type TeamPageProps = {
   params: Promise<{
     id: string;
   }>;
+
+  searchParams: Promise<{
+    activityPage?: string | string[];
+  }>;
 };
 
 async function TeamDetails({
   params,
+  searchParams,
 }: TeamPageProps) {
   const session = await auth();
   const { id } = await params;
+  const { activityPage: rawActivityPage } =
+    await searchParams;
+
+  const pageResult = z.coerce
+    .number()
+    .int()
+    .positive()
+    .safeParse(
+      Array.isArray(rawActivityPage)
+        ? rawActivityPage[0]
+        : rawActivityPage,
+    );
+
+  const requestedActivityPage =
+    pageResult.success ? pageResult.data : 1;
 
   if (!session?.user?.id) {
     notFound();
@@ -87,23 +107,48 @@ async function TeamDetails({
       asc(users.name),
     );
 
-  const logs = await db
-    .select({
-      id: activityLogs.id,
-      action: activityLogs.action,
-      details: activityLogs.details,
-      createdAt: activityLogs.createdAt,
-      userName: users.name,
-      userEmail: users.email,
-    })
-    .from(activityLogs)
-    .leftJoin(
-      users,
-      eq(activityLogs.userId, users.id),
-    )
-    .where(eq(activityLogs.teamId, teamId))
-    .orderBy(desc(activityLogs.createdAt))
-    .limit(20);
+const activityPageSize = 5;
+
+const [logCountResult] = await db
+  .select({
+    value: count(),
+  })
+  .from(activityLogs)
+  .where(eq(activityLogs.teamId, teamId));
+
+const totalLogs = logCountResult.value;
+
+const totalActivityPages = Math.max(
+  1,
+  Math.ceil(totalLogs / activityPageSize),
+);
+
+const currentActivityPage = Math.min(
+  requestedActivityPage,
+  totalActivityPages,
+);
+
+const logs = await db
+  .select({
+    id: activityLogs.id,
+    action: activityLogs.action,
+    details: activityLogs.details,
+    createdAt: activityLogs.createdAt,
+    userName: users.name,
+    userEmail: users.email,
+  })
+  .from(activityLogs)
+  .leftJoin(
+    users,
+    eq(activityLogs.userId, users.id),
+  )
+  .where(eq(activityLogs.teamId, teamId))
+  .orderBy(desc(activityLogs.createdAt))
+  .limit(activityPageSize)
+  .offset(
+    (currentActivityPage - 1) *
+      activityPageSize,
+  );
 
   return (
     <>
@@ -236,16 +281,26 @@ async function TeamDetails({
           </table>
         </div>
       </section>
-      <section className="mt-8">
-  <h2 className="text-xl font-semibold">
-    最近活动
-  </h2>
+<section
+  id="activity"
+  className="mt-8 scroll-mt-6"
+>
+  <div className="flex items-center justify-between gap-4">
+    <h2 className="text-xl font-semibold">
+      最近活动
+    </h2>
+
+    <span className="text-sm text-zinc-500">
+      共 {totalLogs} 条
+    </span>
+  </div>
 
   {logs.length === 0 ? (
     <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-6 text-zinc-500">
       暂无活动记录。
     </div>
   ) : (
+    <>
     <ol className="mt-4 divide-y divide-zinc-100 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
       {logs.map((log) => (
         <li
@@ -280,7 +335,51 @@ async function TeamDetails({
         </li>
       ))}
     </ol>
+{totalActivityPages > 1 && (
+  <nav
+    aria-label="活动日志分页"
+    className="mt-4 flex items-center justify-between gap-4"
+  >
+    {currentActivityPage > 1 ? (
+      <Link
+        href={`/dashboard/teams/${teamId}?activityPage=${
+          currentActivityPage - 1
+        }#activity`}
+        className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+      >
+        ← 上一页
+      </Link>
+    ) : (
+      <span className="rounded-lg border border-zinc-200 px-4 py-2 text-sm text-zinc-400">
+        ← 上一页
+      </span>
+    )}
+
+    <span className="text-sm text-zinc-600">
+      第 {currentActivityPage} 页，共{" "}
+      {totalActivityPages} 页
+    </span>
+
+    {currentActivityPage <
+    totalActivityPages ? (
+      <Link
+        href={`/dashboard/teams/${teamId}?activityPage=${
+          currentActivityPage + 1
+        }#activity`}
+        className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+      >
+        下一页 →
+      </Link>
+    ) : (
+      <span className="rounded-lg border border-zinc-200 px-4 py-2 text-sm text-zinc-400">
+        下一页 →
+      </span>
+    )}
+  </nav>
+)}
+    </>
   )}
+
 </section>
     </>
   );
@@ -298,7 +397,9 @@ export default function TeamPage(
   return (
     <main className="p-8">
       <Suspense fallback={<TeamDetailsSkeleton />}>
-        <TeamDetails params={props.params} />
+        <TeamDetails params={props.params}
+          searchParams={props.searchParams}
+        />
       </Suspense>
     </main>
   );

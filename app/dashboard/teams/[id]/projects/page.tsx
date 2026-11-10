@@ -19,6 +19,7 @@ import {
 import { auth } from "@/auth";
 
 import CreateProjectForm from "./create-project-form";
+import ProjectStatusActions from "./project-status-actions";
 
 export const metadata: Metadata = {
   title: "团队项目",
@@ -191,6 +192,11 @@ async function TeamProjects({
                     ).format(project.createdAt)}
                   </p>
                 </div>
+                <ProjectStatusActions
+                    teamId={teamId}
+                    projectId={project.id}
+                    currentStatus={project.status}
+                    />
               </article>
             ))}
           </div>

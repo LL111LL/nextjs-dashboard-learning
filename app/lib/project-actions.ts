@@ -305,3 +305,173 @@ export async function updateProjectStatus(
     message: "项目状态修改成功。",
   };
 }
+
+export type UpdateProjectState = {
+  success?: boolean;
+  errors?: {
+    name?: string[];
+    description?: string[];
+  };
+  message?: string | null;
+};
+
+export async function updateProject(
+  teamId: string,
+  projectId: string,
+  _previousState: UpdateProjectState,
+  formData: FormData,
+): Promise<UpdateProjectState> {
+  void _previousState;
+
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return {
+      success: false,
+      message: "登录状态已失效，请重新登录。",
+    };
+  }
+
+  const idsResult = z
+    .object({
+      teamId: z.string().uuid(),
+      projectId: z.string().uuid(),
+    })
+    .safeParse({
+      teamId,
+      projectId,
+    });
+
+  if (!idsResult.success) {
+    return {
+      success: false,
+      message: "团队或项目 ID 无效。",
+    };
+  }
+
+  const formResult = ProjectSchema.safeParse({
+    name: formData.get("name"),
+    description:
+      formData.get("description") ?? "",
+  });
+
+  if (!formResult.success) {
+    return {
+      success: false,
+      errors:
+        formResult.error.flatten().fieldErrors,
+      message: "更新项目失败，请检查表单内容。",
+    };
+  }
+
+  const {
+    teamId: validTeamId,
+    projectId: validProjectId,
+  } = idsResult.data;
+
+  const userId = session.user.id;
+  const { name, description } = formResult.data;
+  const normalizedDescription =
+    description.length > 0 ? description : null;
+
+  try {
+    // 当前用户必须属于该团队。
+    const [membership] = await db
+      .select({
+        id: teamMembers.id,
+      })
+      .from(teamMembers)
+      .where(
+        and(
+          eq(teamMembers.teamId, validTeamId),
+          eq(teamMembers.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    if (!membership) {
+      return {
+        success: false,
+        message: "你不是该团队的成员。",
+      };
+    }
+
+    // 必须同时用项目 ID 和团队 ID 查询。
+    const [currentProject] = await db
+      .select({
+        name: projects.name,
+        description: projects.description,
+      })
+      .from(projects)
+      .where(
+        and(
+          eq(projects.id, validProjectId),
+          eq(projects.teamId, validTeamId),
+        ),
+      )
+      .limit(1);
+
+    if (!currentProject) {
+      return {
+        success: false,
+        message: "找不到该团队项目。",
+      };
+    }
+
+    if (
+      currentProject.name === name &&
+      currentProject.description ===
+        normalizedDescription
+    ) {
+      return {
+        success: false,
+        message: "项目内容没有变化。",
+      };
+    }
+
+    await db.batch([
+      db
+        .update(projects)
+        .set({
+          name,
+          description: normalizedDescription,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(projects.id, validProjectId),
+            eq(projects.teamId, validTeamId),
+          ),
+        ),
+
+      db.insert(activityLogs).values({
+        teamId: validTeamId,
+        userId,
+        action: "project.updated",
+        details:
+          currentProject.name === name
+            ? `更新了项目“${name}”的说明`
+            : `将项目“${currentProject.name}”重命名为“${name}”`,
+      }),
+    ]);
+  } catch (error) {
+    console.error("更新团队项目失败：", error);
+
+    return {
+      success: false,
+      message: "数据库错误：更新项目失败。",
+    };
+  }
+
+  revalidatePath(
+    `/dashboard/teams/${validTeamId}/projects`,
+  );
+  revalidatePath(
+    `/dashboard/teams/${validTeamId}`,
+  );
+
+  return {
+    success: true,
+    message: "项目更新成功。",
+  };
+}

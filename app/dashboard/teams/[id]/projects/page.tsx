@@ -152,20 +152,28 @@ async function TeamProjects({
                 key={project.id}
                 className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="font-semibold text-zinc-900">
-                    {project.name}
-                  </h3>
+<div className="flex items-start justify-between gap-3">
+  <h3 className="font-semibold text-zinc-900">
+    {project.name}
+  </h3>
 
-                  <span className="shrink-0 rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
-                    {project.status === "active"
-                      ? "进行中"
-                      : project.status ===
-                          "completed"
-                        ? "已完成"
-                        : "已归档"}
-                  </span>
-                </div>
+  <div className="flex shrink-0 flex-col items-end gap-2">
+    <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+      {project.status === "active"
+        ? "进行中"
+        : project.status === "completed"
+          ? "已完成"
+          : "已归档"}
+    </span>
+
+    <Link
+      href={`/dashboard/teams/${teamId}/projects/${project.id}/edit`}
+      className="text-sm font-medium text-blue-600 hover:text-blue-500 hover:underline"
+    >
+      编辑项目
+    </Link>
+  </div>
+</div>
 
                 <p className="mt-3 min-h-12 text-sm text-zinc-600">
                   {project.description ??

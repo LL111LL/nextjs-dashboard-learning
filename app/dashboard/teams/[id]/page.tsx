@@ -183,12 +183,21 @@ const logs = await db
           </p>
         </div>
 
-        <span className="w-fit rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
-          我的角色：
-          {membership.role === "owner"
-            ? "所有者"
-            : "成员"}
-        </span>
+<div className="flex flex-wrap items-center gap-3">
+  <Link
+    href={`/dashboard/teams/${teamId}/projects`}
+    className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+  >
+    查看项目 →
+  </Link>
+
+  <span className="w-fit rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
+    我的角色：
+    {membership.role === "owner"
+      ? "所有者"
+      : "成员"}
+  </span>
+</div>
       </div>
 {membership.role === "owner" && (
   <div className="mt-8 grid items-start gap-6 lg:grid-cols-2">

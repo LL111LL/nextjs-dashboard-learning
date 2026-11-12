@@ -227,3 +227,75 @@ export const projects = pgTable(
     ),
   ],
 );
+
+export const projectTasks = pgTable(
+  "project_tasks",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+
+    projectId: uuid("project_id").notNull(),
+
+    title: varchar({ length: 200 }).notNull(),
+
+    description: text(),
+
+    status: varchar({ length: 20 })
+      .default("todo")
+      .notNull(),
+
+    assigneeId: uuid("assignee_id"),
+
+    createdBy: uuid("created_by"),
+
+    dueDate: date("due_date"),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.projectId],
+      foreignColumns: [projects.id],
+      name: "project_tasks_project_id_fkey",
+    }).onDelete("cascade"),
+
+    foreignKey({
+      columns: [table.assigneeId],
+      foreignColumns: [users.id],
+      name: "project_tasks_assignee_id_fkey",
+    }).onDelete("set null"),
+
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [users.id],
+      name: "project_tasks_created_by_fkey",
+    }).onDelete("set null"),
+
+    index("project_tasks_project_status_idx").on(
+      table.projectId,
+      table.status,
+    ),
+
+    index("project_tasks_assignee_id_idx").on(
+      table.assigneeId,
+    ),
+
+    check(
+      "project_tasks_status_check",
+      sql`${table.status} IN (
+        'todo',
+        'in_progress',
+        'done'
+      )`,
+    ),
+  ],
+);

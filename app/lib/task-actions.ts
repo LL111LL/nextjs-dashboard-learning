@@ -424,3 +424,228 @@ export async function updateTaskStatus(
     message: "任务状态修改成功。",
   };
 }
+
+export type UpdateTaskState = TaskActionState;
+
+export async function updateTask(
+  teamId: string,
+  projectId: string,
+  taskId: string,
+  _previousState: UpdateTaskState,
+  formData: FormData,
+): Promise<UpdateTaskState> {
+  void _previousState;
+
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return {
+      success: false,
+      message: "登录状态已失效，请重新登录。",
+    };
+  }
+
+  const idsResult = z
+    .object({
+      teamId: z.string().uuid(),
+      projectId: z.string().uuid(),
+      taskId: z.string().uuid(),
+    })
+    .safeParse({
+      teamId,
+      projectId,
+      taskId,
+    });
+
+  if (!idsResult.success) {
+    return {
+      success: false,
+      message: "团队、项目或任务 ID 无效。",
+    };
+  }
+
+  const formResult = TaskSchema.safeParse({
+    title: formData.get("title"),
+    description:
+      formData.get("description") ?? "",
+    assigneeId: formData.get("assigneeId"),
+    dueDate: formData.get("dueDate"),
+  });
+
+  if (!formResult.success) {
+    return {
+      success: false,
+      errors:
+        formResult.error.flatten().fieldErrors,
+      message: "更新任务失败，请检查表单内容。",
+    };
+  }
+
+  const {
+    teamId: validTeamId,
+    projectId: validProjectId,
+    taskId: validTaskId,
+  } = idsResult.data;
+
+  const userId = session.user.id;
+  const {
+    title,
+    description,
+    assigneeId,
+    dueDate,
+  } = formResult.data;
+
+  const normalizedDescription =
+    description.length > 0 ? description : null;
+
+  try {
+    // 当前用户必须属于团队。
+    const [membership] = await db
+      .select({
+        id: teamMembers.id,
+      })
+      .from(teamMembers)
+      .where(
+        and(
+          eq(teamMembers.teamId, validTeamId),
+          eq(teamMembers.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    if (!membership) {
+      return {
+        success: false,
+        message: "你不是该团队的成员。",
+      };
+    }
+
+    // 任务必须属于该项目，项目必须属于该团队。
+    const [currentTask] = await db
+      .select({
+        title: projectTasks.title,
+        description: projectTasks.description,
+        assigneeId: projectTasks.assigneeId,
+        dueDate: projectTasks.dueDate,
+        projectName: projects.name,
+      })
+      .from(projectTasks)
+      .innerJoin(
+        projects,
+        eq(projectTasks.projectId, projects.id),
+      )
+      .where(
+        and(
+          eq(projectTasks.id, validTaskId),
+          eq(
+            projectTasks.projectId,
+            validProjectId,
+          ),
+          eq(projects.teamId, validTeamId),
+        ),
+      )
+      .limit(1);
+
+    if (!currentTask) {
+      return {
+        success: false,
+        message: "找不到该团队项目中的任务。",
+      };
+    }
+
+    // 新负责人必须属于同一个团队。
+    if (assigneeId) {
+      const [assigneeMembership] = await db
+        .select({
+          id: teamMembers.id,
+        })
+        .from(teamMembers)
+        .where(
+          and(
+            eq(teamMembers.teamId, validTeamId),
+            eq(
+              teamMembers.userId,
+              assigneeId,
+            ),
+          ),
+        )
+        .limit(1);
+
+      if (!assigneeMembership) {
+        return {
+          success: false,
+          errors: {
+            assigneeId: [
+              "所选负责人不是该团队成员。",
+            ],
+          },
+          message: "更新任务失败。",
+        };
+      }
+    }
+
+    const hasChanges =
+      currentTask.title !== title ||
+      currentTask.description !==
+        normalizedDescription ||
+      currentTask.assigneeId !== assigneeId ||
+      currentTask.dueDate !== dueDate;
+
+    if (!hasChanges) {
+      return {
+        success: false,
+        message: "任务内容没有变化。",
+      };
+    }
+
+    await db.batch([
+      db
+        .update(projectTasks)
+        .set({
+          title,
+          description: normalizedDescription,
+          assigneeId,
+          dueDate,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(projectTasks.id, validTaskId),
+            eq(
+              projectTasks.projectId,
+              validProjectId,
+            ),
+          ),
+        ),
+
+      db.insert(activityLogs).values({
+        teamId: validTeamId,
+        userId,
+        action: "task.updated",
+        details:
+          currentTask.title === title
+            ? `更新了项目“${currentTask.projectName}”中的任务“${title}”`
+            : `将任务“${currentTask.title}”重命名为“${title}”`,
+      }),
+    ]);
+  } catch (error) {
+    console.error("更新项目任务失败：", error);
+
+    return {
+      success: false,
+      message: "数据库错误：更新任务失败。",
+    };
+  }
+
+  revalidatePath(
+    `/dashboard/teams/${validTeamId}/projects/${validProjectId}`,
+  );
+  revalidatePath(
+    `/dashboard/teams/${validTeamId}`,
+  );
+
+  return {
+    success: true,
+    message: "任务更新成功。",
+  };
+}

@@ -21,6 +21,7 @@ import {
 import { auth } from "@/auth";
 
 import CreateTaskForm from "./create-task-form";
+import TaskStatusActions from "./task-status-actions";
 
 export const metadata: Metadata = {
   title: "项目详情",
@@ -299,6 +300,12 @@ async function ProjectDetails({
                       </dd>
                     </div>
                   </dl>
+                  <TaskStatusActions
+                    teamId={teamId}
+                    projectId={validProjectId}
+                    taskId={task.id}
+                    currentStatus={task.status}
+                  />
                 </article>
               );
             })}

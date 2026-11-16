@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql as drizzleSql,} from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -647,5 +647,194 @@ export async function updateTask(
   return {
     success: true,
     message: "任务更新成功。",
+  };
+}
+
+export type DeleteTaskState = {
+  success?: boolean;
+  message?: string | null;
+};
+
+export async function deleteTask(
+  teamId: string,
+  projectId: string,
+  taskId: string,
+  _previousState: DeleteTaskState,
+  _formData: FormData,
+): Promise<DeleteTaskState> {
+  void _previousState;
+  void _formData;
+
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return {
+      success: false,
+      message: "登录状态已失效，请重新登录。",
+    };
+  }
+
+  const idsResult = z
+    .object({
+      teamId: z.string().uuid(),
+      projectId: z.string().uuid(),
+      taskId: z.string().uuid(),
+    })
+    .safeParse({
+      teamId,
+      projectId,
+      taskId,
+    });
+
+  if (!idsResult.success) {
+    return {
+      success: false,
+      message: "团队、项目或任务 ID 无效。",
+    };
+  }
+
+  const {
+    teamId: validTeamId,
+    projectId: validProjectId,
+    taskId: validTaskId,
+  } = idsResult.data;
+
+  const userId = session.user.id;
+
+  try {
+    const [membership] = await db
+      .select({
+        role: teamMembers.role,
+      })
+      .from(teamMembers)
+      .where(
+        and(
+          eq(teamMembers.teamId, validTeamId),
+          eq(teamMembers.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    if (!membership) {
+      return {
+        success: false,
+        message: "你不是该团队的成员。",
+      };
+    }
+
+    const [currentTask] = await db
+      .select({
+        title: projectTasks.title,
+        createdBy: projectTasks.createdBy,
+        projectName: projects.name,
+      })
+      .from(projectTasks)
+      .innerJoin(
+        projects,
+        eq(projectTasks.projectId, projects.id),
+      )
+      .where(
+        and(
+          eq(projectTasks.id, validTaskId),
+          eq(
+            projectTasks.projectId,
+            validProjectId,
+          ),
+          eq(projects.teamId, validTeamId),
+        ),
+      )
+      .limit(1);
+
+    if (!currentTask) {
+      return {
+        success: false,
+        message: "找不到该团队项目中的任务。",
+      };
+    }
+
+    const canDelete =
+      membership.role === "owner" ||
+      currentTask.createdBy === userId;
+
+    if (!canDelete) {
+      return {
+        success: false,
+        message:
+          "只有团队所有者或任务创建者可以删除该任务。",
+      };
+    }
+
+    const details =
+      `删除了项目“${currentTask.projectName}”中的任务“${currentTask.title}”`;
+
+    // 删除发生时再次验证团队、项目和权限，
+    // 只有删除成功才写入日志。
+    const result = await db.execute(drizzleSql`
+      WITH deleted_task AS (
+        DELETE FROM ${projectTasks}
+        WHERE
+          ${projectTasks.id} = ${validTaskId}
+          AND
+          ${projectTasks.projectId} = ${validProjectId}
+          AND EXISTS (
+            SELECT 1
+            FROM "projects" AS checked_project
+            WHERE
+              checked_project."id" = ${validProjectId}
+              AND
+              checked_project."team_id" = ${validTeamId}
+          )
+          AND (
+            ${projectTasks.createdBy} = ${userId}
+            OR EXISTS (
+              SELECT 1
+              FROM "team_members" AS actor_membership
+              WHERE
+                actor_membership."team_id" = ${validTeamId}
+                AND
+                actor_membership."user_id" = ${userId}
+                AND
+                actor_membership."role" = 'owner'
+            )
+          )
+        RETURNING 1
+      )
+      INSERT INTO ${activityLogs}
+        ("team_id", "user_id", "action", "details")
+      SELECT
+        ${validTeamId}::uuid,
+        ${userId}::uuid,
+        'task.deleted',
+        ${details}
+      FROM deleted_task
+      RETURNING "id"
+    `);
+
+    if (result.rows.length === 0) {
+      return {
+        success: false,
+        message:
+          "任务未被删除，请刷新页面后重试。",
+      };
+    }
+  } catch (error) {
+    console.error("删除项目任务失败：", error);
+
+    return {
+      success: false,
+      message: "数据库错误：删除任务失败。",
+    };
+  }
+
+  revalidatePath(
+    `/dashboard/teams/${validTeamId}/projects/${validProjectId}`,
+  );
+  revalidatePath(
+    `/dashboard/teams/${validTeamId}`,
+  );
+
+  return {
+    success: true,
+    message: "任务已删除。",
   };
 }

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
-
+import DeleteTaskButton from "./delete-task-button";
 import { db } from "@/app/db";
 import {
   projects,
@@ -43,6 +43,7 @@ async function ProjectDetails({
   if (!session?.user?.id) {
     notFound();
   }
+const currentUserId = session.user.id;
 
   const idsResult = z
     .object({
@@ -66,6 +67,7 @@ async function ProjectDetails({
   const [membership] = await db
     .select({
       teamName: teams.name,
+      role: teamMembers.role,
     })
     .from(teamMembers)
     .innerJoin(
@@ -75,10 +77,7 @@ async function ProjectDetails({
     .where(
       and(
         eq(teamMembers.teamId, teamId),
-        eq(
-          teamMembers.userId,
-          session.user.id,
-        ),
+      eq(teamMembers.userId, currentUserId)
       ),
     )
     .limit(1);
@@ -127,6 +126,7 @@ async function ProjectDetails({
     db
       .select({
         id: projectTasks.id,
+        createdBy: projectTasks.createdBy,
         title: projectTasks.title,
         description: projectTasks.description,
         status: projectTasks.status,
@@ -277,6 +277,15 @@ async function ProjectDetails({
                   >
                     编辑任务
                   </Link>
+                  {(membership.role === "owner" ||
+                    task.createdBy === currentUserId) && (
+                    <DeleteTaskButton
+                      teamId={teamId}
+                      projectId={validProjectId}
+                      taskId={task.id}
+                      taskTitle={task.title}
+                    />
+                  )}
                 </div>
               </div>
 

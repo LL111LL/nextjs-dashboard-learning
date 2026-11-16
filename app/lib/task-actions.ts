@@ -3,15 +3,17 @@
 import { and, eq, sql as drizzleSql,} from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-
+import {
+  getProjectAccess,
+  getProjectAccessFailureMessage,
+} from "@/app/lib/project-permissions";
 import { db } from "@/app/db";
 import {
   activityLogs,
-  projects,
   projectTasks,
   teamMembers,
 } from "@/app/db/schema";
-import { auth } from "@/auth";
+
 
 const TaskSchema = z.object({
   title: z
@@ -70,32 +72,20 @@ export async function createTask(
 ): Promise<TaskActionState> {
   void _previousState;
 
-  const session = await auth();
+  const access = await getProjectAccess(
+  teamId,
+  projectId,
+);
 
-  if (!session?.user?.id) {
-    return {
-      success: false,
-      message: "登录状态已失效，请重新登录。",
-    };
-  }
-
-  const idsResult = z
-    .object({
-      teamId: z.string().uuid(),
-      projectId: z.string().uuid(),
-    })
-    .safeParse({
-      teamId,
-      projectId,
-    });
-
-  if (!idsResult.success) {
-    return {
-      success: false,
-      message: "团队或项目 ID 无效。",
-    };
-  }
-
+if (!access.ok) {
+  return {
+    success: false,
+    message:
+      getProjectAccessFailureMessage(
+        access.reason,
+      ),
+  };
+}
   const formResult = TaskSchema.safeParse({
     title: formData.get("title"),
     description:
@@ -113,12 +103,10 @@ export async function createTask(
     };
   }
 
-  const {
-    teamId: validTeamId,
-    projectId: validProjectId,
-  } = idsResult.data;
+const validTeamId = access.teamId;
+const validProjectId = access.project.id;
+const userId = access.userId;
 
-  const userId = session.user.id;
   const {
     title,
     description,
@@ -127,47 +115,6 @@ export async function createTask(
   } = formResult.data;
 
   try {
-    // 当前操作者必须属于该团队。
-    const [membership] = await db
-      .select({
-        id: teamMembers.id,
-      })
-      .from(teamMembers)
-      .where(
-        and(
-          eq(teamMembers.teamId, validTeamId),
-          eq(teamMembers.userId, userId),
-        ),
-      )
-      .limit(1);
-
-    if (!membership) {
-      return {
-        success: false,
-        message: "你不是该团队的成员。",
-      };
-    }
-
-    // 项目必须属于当前团队。
-    const [project] = await db
-      .select({
-        name: projects.name,
-      })
-      .from(projects)
-      .where(
-        and(
-          eq(projects.id, validProjectId),
-          eq(projects.teamId, validTeamId),
-        ),
-      )
-      .limit(1);
-
-    if (!project) {
-      return {
-        success: false,
-        message: "找不到该团队项目。",
-      };
-    }
 
     // 如果选择了负责人，负责人也必须属于当前团队。
     if (assigneeId) {
@@ -222,7 +169,7 @@ export async function createTask(
         userId,
         action: "task.created",
         details:
-          `在项目“${project.name}”中创建了任务“${title}”`,
+          `在项目“${access.project.name}”中创建了任务“${title}”`,
       }),
     ]);
   } catch (error) {
@@ -269,91 +216,66 @@ export async function updateTaskStatus(
   void _previousState;
   void _formData;
 
-  const session = await auth();
+const access = await getProjectAccess(
+  teamId,
+  projectId,
+);
 
-  if (!session?.user?.id) {
-    return {
-      success: false,
-      message: "登录状态已失效，请重新登录。",
-    };
-  }
+if (!access.ok) {
+  return {
+    success: false,
+    message:
+      getProjectAccessFailureMessage(
+        access.reason,
+      ),
+  };
+}
 
-  const inputResult = z
-    .object({
-      teamId: z.string().uuid(),
-      projectId: z.string().uuid(),
-      taskId: z.string().uuid(),
-      nextStatus: TaskStatusSchema,
-    })
-    .safeParse({
-      teamId,
-      projectId,
-      taskId,
-      nextStatus,
-    });
+const inputResult = z
+  .object({
+    taskId: z.string().uuid(),
+    nextStatus: TaskStatusSchema,
+  })
+  .safeParse({
+    taskId,
+    nextStatus,
+  });
 
-  if (!inputResult.success) {
-    return {
-      success: false,
-      message: "任务状态参数无效。",
-    };
-  }
+if (!inputResult.success) {
+  return {
+    success: false,
+    message: "任务或状态参数无效。",
+  };
+}
 
-  const {
-    teamId: validTeamId,
-    projectId: validProjectId,
-    taskId: validTaskId,
-    nextStatus: validNextStatus,
-  } = inputResult.data;
+const validTeamId = access.teamId;
+const validProjectId = access.project.id;
+const userId = access.userId;
 
-  const userId = session.user.id;
+const {
+  taskId: validTaskId,
+  nextStatus: validNextStatus,
+} = inputResult.data;
 
   try {
-    // 当前用户必须属于该团队。
-    const [membership] = await db
-      .select({
-        id: teamMembers.id,
-      })
-      .from(teamMembers)
-      .where(
-        and(
-          eq(teamMembers.teamId, validTeamId),
-          eq(teamMembers.userId, userId),
-        ),
-      )
-      .limit(1);
-
-    if (!membership) {
-      return {
-        success: false,
-        message: "你不是该团队的成员。",
-      };
-    }
-
     // 同时验证：
     // 任务属于项目，项目属于团队。
-    const [currentTask] = await db
-      .select({
-        title: projectTasks.title,
-        status: projectTasks.status,
-        projectName: projects.name,
-      })
-      .from(projectTasks)
-      .innerJoin(
-        projects,
-        eq(projectTasks.projectId, projects.id),
-      )
-      .where(
-        and(
-          eq(projectTasks.id, validTaskId),
-          eq(
-            projectTasks.projectId,
-            validProjectId,
-          ),
-          eq(projects.teamId, validTeamId),
-        ),
-      )
-      .limit(1);
+const [currentTask] = await db
+  .select({
+    title: projectTasks.title,
+    status: projectTasks.status,
+  })
+  .from(projectTasks)
+  .where(
+    and(
+      eq(projectTasks.id, validTaskId),
+      eq(
+        projectTasks.projectId,
+        validProjectId,
+      ),
+    ),
+  )
+  .limit(1);
 
     if (!currentTask) {
       return {
@@ -400,7 +322,7 @@ export async function updateTaskStatus(
         userId,
         action: "task.status_changed",
         details:
-          `将项目“${currentTask.projectName}”中的任务“${currentTask.title}”从“${statusLabels[previousStatus]}”修改为“${statusLabels[validNextStatus]}”`,
+          `将项目“${access.project.name}”中的任务“${currentTask.title}”从“${statusLabels[previousStatus]}”修改为“${statusLabels[validNextStatus]}”`,
       }),
     ]);
   } catch (error) {
@@ -436,33 +358,32 @@ export async function updateTask(
 ): Promise<UpdateTaskState> {
   void _previousState;
 
-  const session = await auth();
+  const access = await getProjectAccess(
+  teamId,
+  projectId,
+);
 
-  if (!session?.user?.id) {
-    return {
-      success: false,
-      message: "登录状态已失效，请重新登录。",
-    };
-  }
+if (!access.ok) {
+  return {
+    success: false,
+    message:
+      getProjectAccessFailureMessage(
+        access.reason,
+      ),
+  };
+}
 
-  const idsResult = z
-    .object({
-      teamId: z.string().uuid(),
-      projectId: z.string().uuid(),
-      taskId: z.string().uuid(),
-    })
-    .safeParse({
-      teamId,
-      projectId,
-      taskId,
-    });
+const taskIdResult = z
+  .string()
+  .uuid()
+  .safeParse(taskId);
 
-  if (!idsResult.success) {
-    return {
-      success: false,
-      message: "团队、项目或任务 ID 无效。",
-    };
-  }
+if (!taskIdResult.success) {
+  return {
+    success: false,
+    message: "任务 ID 无效。",
+  };
+}
 
   const formResult = TaskSchema.safeParse({
     title: formData.get("title"),
@@ -481,13 +402,10 @@ export async function updateTask(
     };
   }
 
-  const {
-    teamId: validTeamId,
-    projectId: validProjectId,
-    taskId: validTaskId,
-  } = idsResult.data;
-
-  const userId = session.user.id;
+const validTeamId = access.teamId;
+const validProjectId = access.project.id;
+const validTaskId = taskIdResult.data;
+const userId = access.userId;
   const {
     title,
     description,
@@ -499,52 +417,27 @@ export async function updateTask(
     description.length > 0 ? description : null;
 
   try {
-    // 当前用户必须属于团队。
-    const [membership] = await db
-      .select({
-        id: teamMembers.id,
-      })
-      .from(teamMembers)
-      .where(
-        and(
-          eq(teamMembers.teamId, validTeamId),
-          eq(teamMembers.userId, userId),
-        ),
-      )
-      .limit(1);
 
-    if (!membership) {
-      return {
-        success: false,
-        message: "你不是该团队的成员。",
-      };
-    }
 
     // 任务必须属于该项目，项目必须属于该团队。
-    const [currentTask] = await db
-      .select({
-        title: projectTasks.title,
-        description: projectTasks.description,
-        assigneeId: projectTasks.assigneeId,
-        dueDate: projectTasks.dueDate,
-        projectName: projects.name,
-      })
-      .from(projectTasks)
-      .innerJoin(
-        projects,
-        eq(projectTasks.projectId, projects.id),
-      )
-      .where(
-        and(
-          eq(projectTasks.id, validTaskId),
-          eq(
-            projectTasks.projectId,
-            validProjectId,
-          ),
-          eq(projects.teamId, validTeamId),
-        ),
-      )
-      .limit(1);
+  const [currentTask] = await db
+  .select({
+    title: projectTasks.title,
+    description: projectTasks.description,
+    assigneeId: projectTasks.assigneeId,
+    dueDate: projectTasks.dueDate,
+  })
+  .from(projectTasks)
+  .where(
+    and(
+      eq(projectTasks.id, validTaskId),
+      eq(
+        projectTasks.projectId,
+        validProjectId,
+      ),
+    ),
+  )
+  .limit(1);
 
     if (!currentTask) {
       return {
@@ -624,7 +517,7 @@ export async function updateTask(
         action: "task.updated",
         details:
           currentTask.title === title
-            ? `更新了项目“${currentTask.projectName}”中的任务“${title}”`
+            ? `更新了项目“${access.project.name}”中的任务“${title}”`
             : `将任务“${currentTask.title}”重命名为“${title}”`,
       }),
     ]);
@@ -665,85 +558,57 @@ export async function deleteTask(
   void _previousState;
   void _formData;
 
-  const session = await auth();
+const access = await getProjectAccess(
+  teamId,
+  projectId,
+);
 
-  if (!session?.user?.id) {
-    return {
-      success: false,
-      message: "登录状态已失效，请重新登录。",
-    };
-  }
+if (!access.ok) {
+  return {
+    success: false,
+    message:
+      getProjectAccessFailureMessage(
+        access.reason,
+      ),
+  };
+}
 
-  const idsResult = z
-    .object({
-      teamId: z.string().uuid(),
-      projectId: z.string().uuid(),
-      taskId: z.string().uuid(),
-    })
-    .safeParse({
-      teamId,
-      projectId,
-      taskId,
-    });
+const taskIdResult = z
+  .string()
+  .uuid()
+  .safeParse(taskId);
 
-  if (!idsResult.success) {
-    return {
-      success: false,
-      message: "团队、项目或任务 ID 无效。",
-    };
-  }
+if (!taskIdResult.success) {
+  return {
+    success: false,
+    message: "任务 ID 无效。",
+  };
+}
 
-  const {
-    teamId: validTeamId,
-    projectId: validProjectId,
-    taskId: validTaskId,
-  } = idsResult.data;
+ 
 
-  const userId = session.user.id;
-
+  const validTeamId = access.teamId;
+const validProjectId = access.project.id;
+const validTaskId = taskIdResult.data;
+const userId = access.userId;
   try {
-    const [membership] = await db
-      .select({
-        role: teamMembers.role,
-      })
-      .from(teamMembers)
-      .where(
-        and(
-          eq(teamMembers.teamId, validTeamId),
-          eq(teamMembers.userId, userId),
-        ),
-      )
-      .limit(1);
-
-    if (!membership) {
-      return {
-        success: false,
-        message: "你不是该团队的成员。",
-      };
-    }
-
-    const [currentTask] = await db
-      .select({
-        title: projectTasks.title,
-        createdBy: projectTasks.createdBy,
-        projectName: projects.name,
-      })
-      .from(projectTasks)
-      .innerJoin(
-        projects,
-        eq(projectTasks.projectId, projects.id),
-      )
-      .where(
-        and(
-          eq(projectTasks.id, validTaskId),
-          eq(
-            projectTasks.projectId,
-            validProjectId,
-          ),
-          eq(projects.teamId, validTeamId),
-        ),
-      )
-      .limit(1);
+   
+   const [currentTask] = await db
+  .select({
+    title: projectTasks.title,
+    createdBy: projectTasks.createdBy,
+  })
+  .from(projectTasks)
+  .where(
+    and(
+      eq(projectTasks.id, validTaskId),
+      eq(
+        projectTasks.projectId,
+        validProjectId,
+      ),
+    ),
+  )
+  .limit(1);
 
     if (!currentTask) {
       return {
@@ -752,9 +617,9 @@ export async function deleteTask(
       };
     }
 
-    const canDelete =
-      membership.role === "owner" ||
-      currentTask.createdBy === userId;
+const canDelete =
+  access.role === "owner" ||
+  currentTask.createdBy === userId;
 
     if (!canDelete) {
       return {
@@ -765,7 +630,7 @@ export async function deleteTask(
     }
 
     const details =
-      `删除了项目“${currentTask.projectName}”中的任务“${currentTask.title}”`;
+      `删除了项目“${access.project.name}”中的任务“${currentTask.title}”`;
 
     // 删除发生时再次验证团队、项目和权限，
     // 只有删除成功才写入日志。

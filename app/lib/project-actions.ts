@@ -3,14 +3,13 @@
 import { and, eq, sql as drizzleSql} from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-
+import { getTeamAccess, getTeamAccessFailureMessage, getTeamOwnerAccess,} from "@/app/lib/team-permissions";
 import { db } from "@/app/db";
 import {
   activityLogs,
   projects,
-  teamMembers,
 } from "@/app/db/schema";
-import { auth } from "@/auth";
+
 
 const ProjectSchema = z.object({
   name: z
@@ -41,26 +40,16 @@ export async function createProject(
 ): Promise<ProjectActionState> {
   void _previousState;
 
-  const session = await auth();
+  const access = await getTeamAccess(teamId);
 
-  if (!session?.user?.id) {
-    return {
-      success: false,
-      message: "登录状态已失效，请重新登录。",
-    };
-  }
-
-  const teamIdResult = z
-    .string()
-    .uuid()
-    .safeParse(teamId);
-
-  if (!teamIdResult.success) {
-    return {
-      success: false,
-      message: "团队 ID 无效。",
-    };
-  }
+if (!access.ok) {
+  return {
+    success: false,
+    message: getTeamAccessFailureMessage(
+      access.reason,
+    ),
+  };
+}
 
   const formResult = ProjectSchema.safeParse({
     name: formData.get("name"),
@@ -77,33 +66,12 @@ export async function createProject(
     };
   }
 
-  const validTeamId = teamIdResult.data;
-  const userId = session.user.id;
+const validTeamId = access.teamId;
+const userId = access.userId;
   const projectId = crypto.randomUUID();
   const { name, description } = formResult.data;
 
   try {
-    // 租户权限检查：当前用户必须属于该团队。
-    const [membership] = await db
-      .select({
-        id: teamMembers.id,
-      })
-      .from(teamMembers)
-      .where(
-        and(
-          eq(teamMembers.teamId, validTeamId),
-          eq(teamMembers.userId, userId),
-        ),
-      )
-      .limit(1);
-
-    if (!membership) {
-      return {
-        success: false,
-        message: "你不是该团队的成员。",
-      };
-    }
-
     await db.batch([
       db.insert(projects).values({
         id: projectId,
@@ -164,64 +132,44 @@ export async function updateProjectStatus(
   void _previousState;
   void _formData;
 
-  const session = await auth();
+const access = await getTeamAccess(teamId);
 
-  if (!session?.user?.id) {
-    return {
-      success: false,
-      message: "登录状态已失效，请重新登录。",
-    };
-  }
+if (!access.ok) {
+  return {
+    success: false,
+    message: getTeamAccessFailureMessage(
+      access.reason,
+    ),
+  };
+}
 
-  const inputResult = z
-    .object({
-      teamId: z.string().uuid(),
-      projectId: z.string().uuid(),
-      nextStatus: ProjectStatusSchema,
-    })
-    .safeParse({
-      teamId,
-      projectId,
-      nextStatus,
-    });
+const inputResult = z
+  .object({
+    projectId: z.string().uuid(),
+    nextStatus: ProjectStatusSchema,
+  })
+  .safeParse({
+    projectId,
+    nextStatus,
+  });
 
-  if (!inputResult.success) {
-    return {
-      success: false,
-      message: "项目状态参数无效。",
-    };
-  }
+if (!inputResult.success) {
+  return {
+    success: false,
+    message: "项目或状态参数无效。",
+  };
+}
 
-  const {
-    teamId: validTeamId,
-    projectId: validProjectId,
-    nextStatus: validNextStatus,
-  } = inputResult.data;
+const validTeamId = access.teamId;
+const userId = access.userId;
+
+const {
+  projectId: validProjectId,
+  nextStatus: validNextStatus,
+} = inputResult.data;
 
   try {
-    // 当前用户必须属于该团队。
-    const [membership] = await db
-      .select({
-        id: teamMembers.id,
-      })
-      .from(teamMembers)
-      .where(
-        and(
-          eq(teamMembers.teamId, validTeamId),
-          eq(
-            teamMembers.userId,
-            session.user.id,
-          ),
-        ),
-      )
-      .limit(1);
-
-    if (!membership) {
-      return {
-        success: false,
-        message: "你不是该团队的成员。",
-      };
-    }
+ 
 
     // 同时使用 projectId 和 teamId，防止跨团队操作。
     const [currentProject] = await db
@@ -274,7 +222,7 @@ export async function updateProjectStatus(
 
       db.insert(activityLogs).values({
         teamId: validTeamId,
-        userId: session.user.id,
+        userId,
         action: "project.status_changed",
         details:
           `将项目“${currentProject.name}”的状态从“${
@@ -323,31 +271,28 @@ export async function updateProject(
 ): Promise<UpdateProjectState> {
   void _previousState;
 
-  const session = await auth();
+const access = await getTeamAccess(teamId);
 
-  if (!session?.user?.id) {
-    return {
-      success: false,
-      message: "登录状态已失效，请重新登录。",
-    };
-  }
+if (!access.ok) {
+  return {
+    success: false,
+    message: getTeamAccessFailureMessage(
+      access.reason,
+    ),
+  };
+}
 
-  const idsResult = z
-    .object({
-      teamId: z.string().uuid(),
-      projectId: z.string().uuid(),
-    })
-    .safeParse({
-      teamId,
-      projectId,
-    });
+const projectIdResult = z
+  .string()
+  .uuid()
+  .safeParse(projectId);
 
-  if (!idsResult.success) {
-    return {
-      success: false,
-      message: "团队或项目 ID 无效。",
-    };
-  }
+if (!projectIdResult.success) {
+  return {
+    success: false,
+    message: "项目 ID 无效。",
+  };
+}
 
   const formResult = ProjectSchema.safeParse({
     name: formData.get("name"),
@@ -364,38 +309,15 @@ export async function updateProject(
     };
   }
 
-  const {
-    teamId: validTeamId,
-    projectId: validProjectId,
-  } = idsResult.data;
+const validTeamId = access.teamId;
+const validProjectId = projectIdResult.data;
+const userId = access.userId;
 
-  const userId = session.user.id;
   const { name, description } = formResult.data;
   const normalizedDescription =
     description.length > 0 ? description : null;
 
   try {
-    // 当前用户必须属于该团队。
-    const [membership] = await db
-      .select({
-        id: teamMembers.id,
-      })
-      .from(teamMembers)
-      .where(
-        and(
-          eq(teamMembers.teamId, validTeamId),
-          eq(teamMembers.userId, userId),
-        ),
-      )
-      .limit(1);
-
-    if (!membership) {
-      return {
-        success: false,
-        message: "你不是该团队的成员。",
-      };
-    }
-
     // 必须同时用项目 ID 和团队 ID 查询。
     const [currentProject] = await db
       .select({
@@ -490,62 +412,35 @@ export async function deleteProject(
   void _previousState;
   void _formData;
 
-  const session = await auth();
+const access =
+  await getTeamOwnerAccess(teamId);
 
-  if (!session?.user?.id) {
-    return {
-      success: false,
-      message: "登录状态已失效，请重新登录。",
-    };
-  }
+if (!access.ok) {
+  return {
+    success: false,
+    message: getTeamAccessFailureMessage(
+      access.reason,
+    ),
+  };
+}
 
-  const idsResult = z
-    .object({
-      teamId: z.string().uuid(),
-      projectId: z.string().uuid(),
-    })
-    .safeParse({
-      teamId,
-      projectId,
-    });
+const projectIdResult = z
+  .string()
+  .uuid()
+  .safeParse(projectId);
 
-  if (!idsResult.success) {
-    return {
-      success: false,
-      message: "团队或项目 ID 无效。",
-    };
-  }
+if (!projectIdResult.success) {
+  return {
+    success: false,
+    message: "项目 ID 无效。",
+  };
+}
 
-  const {
-    teamId: validTeamId,
-    projectId: validProjectId,
-  } = idsResult.data;
+const validTeamId = access.teamId;
+const validProjectId = projectIdResult.data;
+const userId = access.userId;
 
   try {
-    // 提前检查权限，用于返回清晰的错误消息。
-    const [ownerMembership] = await db
-      .select({
-        id: teamMembers.id,
-      })
-      .from(teamMembers)
-      .where(
-        and(
-          eq(teamMembers.teamId, validTeamId),
-          eq(
-            teamMembers.userId,
-            session.user.id,
-          ),
-          eq(teamMembers.role, "owner"),
-        ),
-      )
-      .limit(1);
-
-    if (!ownerMembership) {
-      return {
-        success: false,
-        message: "只有团队所有者可以删除项目。",
-      };
-    }
 
     const [currentProject] = await db
       .select({
@@ -584,7 +479,7 @@ export async function deleteProject(
             WHERE
               actor_membership."team_id" = ${validTeamId}
               AND
-              actor_membership."user_id" = ${session.user.id}
+              actor_membership."user_id" = ${userId}
               AND
               actor_membership."role" = 'owner'
           )
@@ -594,7 +489,7 @@ export async function deleteProject(
         ("team_id", "user_id", "action", "details")
       SELECT
         ${validTeamId}::uuid,
-        ${session.user.id}::uuid,
+        ${userId}::uuid,
         'project.deleted',
         ${details}
       FROM deleted_project

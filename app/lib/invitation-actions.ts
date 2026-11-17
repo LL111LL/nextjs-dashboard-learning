@@ -1,6 +1,8 @@
 "use server";
 
 import { and, eq, sql } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { auth } from "@/auth";
 import { z } from "zod";
 
 import { db } from "@/app/db";
@@ -134,5 +136,137 @@ export async function createTeamInvitation(
     success: true,
     message: "邀请创建成功，7 天内有效。",
     invitationPath,
+  };
+}
+
+export type AcceptInvitationState = {
+  success?: boolean;
+  message?: string;
+  teamPath?: string;
+};
+
+export async function acceptTeamInvitation(
+  token: string,
+  _previousState: AcceptInvitationState,
+  _formData: FormData,
+): Promise<AcceptInvitationState> {
+  void _previousState;
+  void _formData;
+
+  if (!/^[0-9a-f]{64}$/.test(token)) {
+    return {
+      success: false,
+      message: "邀请链接无效。",
+    };
+  }
+
+  let teamId: string;
+
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return {
+        success: false,
+        message: "请先登录，再接受邀请。",
+      };
+    }
+
+    const userId = session.user.id;
+    const tokenHash = hashInvitationToken(token);
+
+    const result = await db.execute(sql`
+      WITH valid_invitation AS MATERIALIZED (
+        SELECT i.id, i.team_id
+        FROM team_invitations AS i
+        INNER JOIN users AS u
+          ON u.id = ${userId}::uuid
+        WHERE i.token_hash = ${tokenHash}
+          AND lower(trim(i.email)) = lower(trim(u.email))
+          AND i.accepted_at IS NULL
+          AND i.revoked_at IS NULL
+          AND i.expires_at > now()
+        FOR UPDATE OF i
+      ),
+      added_member AS (
+        INSERT INTO team_members (
+          team_id,
+          user_id,
+          role
+        )
+        SELECT
+          team_id,
+          ${userId}::uuid,
+          'member'
+        FROM valid_invitation
+        ON CONFLICT (team_id, user_id) DO NOTHING
+        RETURNING team_id
+      ),
+      accepted_invitation AS (
+        UPDATE team_invitations AS i
+        SET accepted_at = now()
+        FROM valid_invitation AS v
+        WHERE i.id = v.id
+          AND (
+            EXISTS (
+              SELECT 1
+              FROM added_member AS a
+              WHERE a.team_id = v.team_id
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM team_members AS m
+              WHERE m.team_id = v.team_id
+                AND m.user_id = ${userId}::uuid
+            )
+          )
+        RETURNING i.team_id
+      ),
+      recorded_activity AS (
+        INSERT INTO activity_logs (
+          team_id,
+          user_id,
+          action,
+          details
+        )
+        SELECT
+          team_id,
+          ${userId}::uuid,
+          'team.invitation_accepted',
+          '通过邀请加入了团队'
+        FROM added_member
+        RETURNING id
+      )
+      SELECT team_id
+      FROM accepted_invitation
+    `);
+
+    const row = result.rows[0];
+
+    if (!row) {
+      return {
+        success: false,
+        message:
+          "无法接受邀请：邮箱不匹配，或邀请已过期、撤销、接受。请刷新页面确认。",
+      };
+    }
+
+    teamId = String(row.team_id);
+  } catch {
+    console.error("接受团队邀请失败。");
+
+    return {
+      success: false,
+      message: "接受邀请失败，请稍后重试。",
+    };
+  }
+
+  revalidatePath("/dashboard/teams");
+  revalidatePath(`/dashboard/teams/${teamId}`);
+
+  return {
+    success: true,
+    message: "邀请已接受，你已是团队成员。",
+    teamPath: `/dashboard/teams/${teamId}`,
   };
 }

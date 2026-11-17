@@ -299,3 +299,76 @@ export const projectTasks = pgTable(
     ),
   ],
 );
+
+export const teamInvitations = pgTable(
+  "team_invitations",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+
+    teamId: uuid("team_id").notNull(),
+
+    email: varchar({ length: 255 }).notNull(),
+
+    tokenHash: varchar("token_hash", {
+      length: 64,
+    }).notNull(),
+
+    invitedBy: uuid("invited_by").notNull(),
+
+    expiresAt: timestamp("expires_at", {
+      withTimezone: true,
+    }).notNull(),
+
+    acceptedAt: timestamp("accepted_at", {
+      withTimezone: true,
+    }),
+
+    revokedAt: timestamp("revoked_at", {
+      withTimezone: true,
+    }),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.teamId],
+      foreignColumns: [teams.id],
+      name: "team_invitations_team_id_fkey",
+    }).onDelete("cascade"),
+
+    foreignKey({
+      columns: [table.invitedBy],
+      foreignColumns: [users.id],
+      name: "team_invitations_invited_by_fkey",
+    }).onDelete("cascade"),
+
+    unique("team_invitations_token_hash_key").on(
+      table.tokenHash,
+    ),
+
+    index("team_invitations_team_id_idx").on(
+      table.teamId,
+    ),
+
+    index("team_invitations_email_idx").on(
+      table.email,
+    ),
+
+    check(
+      "team_invitations_expiry_check",
+      sql`${table.expiresAt} > ${table.createdAt}`,
+    ),
+
+    check(
+      "team_invitations_state_check",
+      sql`NOT (
+        ${table.acceptedAt} IS NOT NULL
+        AND ${table.revokedAt} IS NOT NULL
+      )`,
+    ),
+  ],
+);

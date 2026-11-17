@@ -1,0 +1,407 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "685ecc11-d981-4e0f-b994-95752e448ed9",
+  "prevIds": [
+    "673f1b8e-75b2-4868-ae99-68ef08ee21f4"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "team_invitations"
+      ],
+      "writes": [
+        "s|tbl|public.team_invitations",
+        "n|tbl|public.team_invitations",
+        "e|tbl|public.team_invitations",
+        "n|rel|public.team_invitations",
+        "n|type|public.team_invitations",
+        "n|rel|public.team_invitations_pkey",
+        "n|rel|public.team_invitations_token_hash_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "team_invitations",
+        "team_invitations_team_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.team_invitations_team_id_idx",
+        "n|idx|public.team_invitations_team_id_idx",
+        "e|idx|public.team_invitations_team_id_idx",
+        "n|rel|public.team_invitations_team_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.team_invitations",
+        "n|sch|public",
+        "n|col|public.team_invitations.team_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "team_invitations",
+        "team_invitations_email_idx"
+      ],
+      "writes": [
+        "s|idx|public.team_invitations_email_idx",
+        "n|idx|public.team_invitations_email_idx",
+        "e|idx|public.team_invitations_email_idx",
+        "n|rel|public.team_invitations_email_idx"
+      ],
+      "reads": [
+        "n|tbl|public.team_invitations",
+        "n|sch|public",
+        "n|col|public.team_invitations.email"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "team_invitations"
+      ],
+      "writes": [
+        "s|fk|public.team_invitations.team_invitations_team_id_fkey",
+        "n|fk|public.team_invitations.team_invitations_team_id_fkey",
+        "e|fk|public.team_invitations.team_invitations_team_id_fkey",
+        "n|con|public.team_invitations.team_invitations_team_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.team_invitations",
+        "n|sch|public",
+        "n|tbl|public.teams",
+        "n|sch|public",
+        "n|col|public.team_invitations.team_id",
+        "n|col|public.teams.id",
+        "e|uniqueness|public.teams.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "team_invitations"
+      ],
+      "writes": [
+        "s|fk|public.team_invitations.team_invitations_invited_by_fkey",
+        "n|fk|public.team_invitations.team_invitations_invited_by_fkey",
+        "e|fk|public.team_invitations.team_invitations_invited_by_fkey",
+        "n|con|public.team_invitations.team_invitations_invited_by_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.team_invitations",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.team_invitations.invited_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "team_invitations",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "gen_random_uuid()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "team_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "email",
+        "type": "varchar(255)",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "token_hash",
+        "type": "varchar(64)",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "invited_by",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "expires_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "accepted_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "revoked_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "team_invitations_team_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "team_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "team_invitations_email_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "email",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "team_invitations_team_id_fkey",
+        "nameExplicit": true,
+        "columns": [
+          "team_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "teams",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "team_invitations_invited_by_fkey",
+        "nameExplicit": true,
+        "columns": [
+          "invited_by"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "team_invitations_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "team_invitations_token_hash_key",
+        "nameExplicit": true,
+        "columns": [
+          "token_hash"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "team_invitations_expiry_check",
+        "value": "\"expires_at\" > \"created_at\"",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "team_invitations",
+        "name": "team_invitations_state_check",
+        "value": "NOT (\n        \"accepted_at\" IS NOT NULL\n        AND \"revoked_at\" IS NOT NULL\n      )",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

@@ -201,14 +201,14 @@ const logs = await db
 </div>
       </div>
 {membership.role === "owner" && (
-  <div className="mt-8 grid items-start gap-6 lg:grid-cols-2">
+  <div className="mt-8 grid items-start gap-6 xl:grid-cols-3">
     <section className="min-w-0">
       <h2 className="text-xl font-semibold">
         团队设置
       </h2>
 
       <p className="mt-2 text-sm text-zinc-600">
-        只有团队所有者可以修改团队名称。
+        修改团队名称，仅所有者可操作。
       </p>
 
       <RenameTeamForm
@@ -219,26 +219,28 @@ const logs = await db
 
     <section className="min-w-0">
       <h2 className="text-xl font-semibold">
-        添加成员
+        直接添加
       </h2>
 
       <p className="mt-2 text-sm text-zinc-600">
-        只能添加已经注册过账号的用户。
+        将已注册用户直接加入团队。
       </p>
 
       <AddMemberForm teamId={teamId} />
-      <div className="mt-6 border-t border-zinc-200 pt-6">
-  <h3 className="text-lg font-semibold">
-    邀请成员
-  </h3>
+    </section>
 
-  <p className="mt-2 text-sm text-zinc-600">
-    生成邀请链接，由对方登录后自行接受。
-    尚未注册的用户也可以收到邀请。
-  </p>
+    <section className="min-w-0">
+      <h2 className="text-xl font-semibold">
+        邀请成员
+      </h2>
 
-  <InviteMemberForm teamId={teamId} />
-</div>
+      <p className="mt-2 text-sm text-zinc-600">
+        分享邀请链接，由对方自行接受。
+      </p>
+
+      <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <InviteMemberForm teamId={teamId} />
+      </div>
     </section>
   </div>
 )}

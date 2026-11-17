@@ -100,9 +100,20 @@ async function InvitationDetails({
     return <p>该邀请已被撤销。</p>;
   }
 
-  if (invitation.acceptedAt) {
-    return <p>该邀请已经被接受。</p>;
-  }
+if (invitation.acceptedAt) {
+  return (
+    <div className="space-y-4">
+      <p>该邀请已经被接受，无需重复操作。</p>
+
+      <Link
+        href="/dashboard/teams"
+        className="inline-block rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500"
+      >
+        前往我的团队 →
+      </Link>
+    </div>
+  );
+}
 
  if (invitation.isExpired) {
     return <p>该邀请已过期，请联系团队所有者重新邀请。</p>;

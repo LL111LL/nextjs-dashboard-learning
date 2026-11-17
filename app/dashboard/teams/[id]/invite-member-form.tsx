@@ -89,8 +89,7 @@ export default function InviteMemberForm({
             </code>
 
             <p className="mt-2 text-xs text-zinc-600">
-              请妥善保管，不要公开分享。
-              接受邀请页面将在下一步实现。
+              请妥善保管，仅分享给被邀请人。
             </p>
           </div>
         )}

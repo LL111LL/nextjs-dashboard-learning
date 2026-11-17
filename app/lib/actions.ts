@@ -212,7 +212,25 @@ export async function authenticate(
   formData: FormData,
 ): Promise<string | undefined> {
   try {
-    await signIn("credentials", formData);
+    const requestedPath = formData.get("redirectTo");
+
+// 只允许回到邀请页或 Dashboard，拒绝外部地址。
+const redirectTo =
+  typeof requestedPath === "string" &&
+  (
+    /^\/invite\/[0-9a-f]{64}$/.test(requestedPath) ||
+    /^\/dashboard(?:\/[^\\?#\s]*)?(?:\?[^\\#\s]*)?$/.test(
+      requestedPath,
+    )
+  )
+    ? requestedPath
+    : "/dashboard";
+
+await signIn("credentials", {
+  email: formData.get("email"),
+  password: formData.get("password"),
+  redirectTo,
+});
   } catch (error) {
     if (error instanceof AuthError) {
       switch (error.type) {

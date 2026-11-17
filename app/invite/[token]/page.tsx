@@ -46,7 +46,9 @@ async function InvitationDetails({
         <p>请先登录被邀请邮箱对应的账号。</p>
 
         <Link
-          href="/login"
+          href={`/login?callbackUrl=${encodeURIComponent(
+            `/invite/${token}`,
+            )}`}
           className="inline-block rounded-lg bg-blue-600 px-4 py-2 text-white"
         >
           前往登录

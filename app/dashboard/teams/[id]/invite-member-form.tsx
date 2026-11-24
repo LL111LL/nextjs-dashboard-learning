@@ -77,6 +77,14 @@ export default function InviteMemberForm({
             {state.message}
           </p>
         )}
+        {!state.success && state.requestId && (
+          <p className="mt-1 text-xs text-zinc-500">
+            错误编号：
+            <code className="ml-1">
+              {state.requestId}
+            </code>
+          </p>
+        )}
 
         {state.success && state.invitationPath && (
           <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">

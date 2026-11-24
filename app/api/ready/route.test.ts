@@ -11,8 +11,17 @@ vi.mock("@neondatabase/serverless", () => ({
   neon: vi.fn(),
 }));
 
+vi.mock("@/app/lib/logger", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
 import { neon } from "@neondatabase/serverless";
 import { GET } from "./route";
+import { logger } from "@/app/lib/logger";
 
 const queryMock = vi.fn();
 
@@ -38,8 +47,15 @@ describe("GET /api/ready", () => {
     queryMock.mockResolvedValue([{ ok: 1 }]);
 
     const response = await GET();
+    const requestId =response.headers.get("x-request-id");
     const body = await response.json();
 
+    expect(requestId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+
+    expect(logger.error).not.toHaveBeenCalled();
+    expect(logger.warn).not.toHaveBeenCalled();
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control"))
       .toBe("no-store");
@@ -68,8 +84,19 @@ describe("GET /api/ready", () => {
     vi.stubEnv("DATABASE_URL", "");
 
     const response = await GET();
+    const requestId =response.headers.get("x-request-id");
     const body = await response.json();
 
+    expect(requestId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
+
+      expect(logger.error).toHaveBeenCalledWith(
+        "database.readiness.missing_configuration",
+        {
+          requestId,
+        },
+      );
     expect(response.status).toBe(503);
     expect(response.headers.get("retry-after"))
       .toBe("10");
@@ -83,25 +110,40 @@ describe("GET /api/ready", () => {
     expect(queryMock).not.toHaveBeenCalled();
   });
 
-  it("数据库查询失败时返回 503", async () => {
-    queryMock.mockRejectedValue(
-      new Error("模拟连接失败"),
-    );
+it("数据库查询失败时返回 503，并使用请求 ID 关联日志", async () => {
+  queryMock.mockRejectedValue(
+    new Error("模拟连接失败"),
+  );
 
-    const response = await GET();
-    const body = await response.json();
+  const response = await GET();
+  const body = await response.json();
 
-    expect(response.status).toBe(503);
-    expect(response.headers.get("retry-after"))
-      .toBe("10");
+  const requestId =
+    response.headers.get("x-request-id");
 
-    expect(body).toEqual({
-      status: "unavailable",
-      service: "nextjs-dashboard",
-      checks: {
-        application: "up",
-        database: "down",
-      },
-    });
+  expect(response.status).toBe(503);
+  expect(response.headers.get("retry-after"))
+    .toBe("10");
+
+  expect(requestId).toMatch(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+  );
+
+  expect(body).toEqual({
+    status: "unavailable",
+    service: "nextjs-dashboard",
+    checks: {
+      application: "up",
+      database: "down",
+    },
   });
+
+  expect(logger.error).toHaveBeenCalledWith(
+    "database.readiness.failed",
+    {
+      requestId,
+      errorType: "Error",
+    },
+  );
+});
 });

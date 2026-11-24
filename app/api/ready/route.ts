@@ -1,32 +1,45 @@
 import { neon } from "@neondatabase/serverless";
 import { NextResponse } from "next/server";
+
+import { logger } from "@/app/lib/logger";
 import {
   createServiceStatus,
 } from "@/app/lib/service-status";
 
 const DATABASE_TIMEOUT_MS = 3000;
 
-function unavailableResponse() {
+function unavailableResponse(
+  requestId: string,
+) {
   return NextResponse.json(
-createServiceStatus(
-  "unavailable",
-  "down",
-),
+    createServiceStatus(
+      "unavailable",
+      "down",
+    ),
     {
       status: 503,
       headers: {
         "Cache-Control": "no-store",
         "Retry-After": "10",
+        "X-Request-Id": requestId,
       },
     },
   );
 }
 
 export async function GET() {
+  const requestId = crypto.randomUUID();
   const databaseUrl = process.env.DATABASE_URL;
 
   if (!databaseUrl) {
-    return unavailableResponse();
+    logger.error(
+      "database.readiness.missing_configuration",
+      {
+        requestId,
+      },
+    );
+
+    return unavailableResponse(requestId);
   }
 
   try {
@@ -45,23 +58,41 @@ export async function GET() {
     );
 
     if (rows[0]?.ok !== 1) {
-      return unavailableResponse();
+      logger.warn(
+        "database.readiness.unexpected_result",
+        {
+          requestId,
+        },
+      );
+
+      return unavailableResponse(requestId);
     }
 
     return NextResponse.json(
-createServiceStatus(
-  "ready",
-  "up",
-),
+      createServiceStatus(
+        "ready",
+        "up",
+      ),
       {
         status: 200,
         headers: {
           "Cache-Control": "no-store",
+          "X-Request-Id": requestId,
         },
       },
     );
-  } catch {
-    // 不把数据库地址、驱动错误或网络信息返回给客户端。
-    return unavailableResponse();
+  } catch (error) {
+    logger.error(
+      "database.readiness.failed",
+      {
+        requestId,
+        errorType:
+          error instanceof Error
+            ? error.name
+            : "UnknownError",
+      },
+    );
+
+    return unavailableResponse(requestId);
   }
 }

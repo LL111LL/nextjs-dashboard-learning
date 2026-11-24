@@ -20,6 +20,9 @@ import {
   generateInvitationToken,
   hashInvitationToken,
 } from "@/app/lib/invitation-token";
+import {
+  createTracedActionFailure,
+} from "@/app/lib/action-error";
 
 const InvitationSchema = z.object({
   email: z
@@ -37,6 +40,7 @@ export type CreateInvitationState = {
     email?: string[];
   };
   invitationPath?: string;
+  requestId?: string;
 };
 
 export async function createTeamInvitation(
@@ -122,15 +126,13 @@ export async function createTeamInvitation(
     ]);
 
     invitationPath = `/invite/${token}`;
-  } catch {
-    // 不打印原始错误，避免数据库参数中的敏感信息进入日志。
-    console.error("创建团队邀请失败。");
-
-    return {
-      success: false,
-      message: "创建邀请失败，请稍后重试。",
-    };
-  }
+  } catch (error) {
+  return createTracedActionFailure({
+    event: "team.invitation.create.failed",
+    message: "创建邀请失败，请稍后重试。",
+    error,
+  });
+}
 
   return {
     success: true,

@@ -5,6 +5,7 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:3000",
     browserName: "chromium",
+    trace: "retain-on-failure",
   },
   webServer: {
   command: "npm run start -- --port 3000",

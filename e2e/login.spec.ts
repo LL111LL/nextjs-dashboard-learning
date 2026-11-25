@@ -4,7 +4,7 @@ test("登录页显示邮箱、密码和登录按钮", async ({ page }) => {
   await page.goto("/login");
 
   await expect(
-    page.getByRole("heading", { name: "登录", exact: true }),
+    page.getByRole("heading", { name: "登录调试演练", exact: true }),
   ).toBeVisible();
 
   await expect(page.getByLabel("电子邮箱")).toBeVisible();

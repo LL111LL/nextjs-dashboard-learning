@@ -57,6 +57,16 @@ jobs:
 
       - name: Browser smoke test
         run: npx playwright test e2e/login.spec.ts
+        id: browser_smoke
         env:
           DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
           AUTH_SECRET: "ci-only-build-secret-not-for-production"
+
+      - name: Upload Playwright trace
+        if: ${{ failure() && steps.browser_smoke.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-trace
+          path: test-results/**/trace.zip
+          if-no-files-found: warn
+          retention-days: 7

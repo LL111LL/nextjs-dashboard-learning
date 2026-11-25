@@ -48,6 +48,9 @@ jobs:
 
       - name: Production build
         run: npm run build
+        env:
+          DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+          AUTH_SECRET: "ci-only-build-secret-not-for-production"
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
@@ -55,5 +58,5 @@ jobs:
       - name: Browser smoke test
         run: npx playwright test e2e/login.spec.ts
         env:
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
-          AUTH_SECRET: ci-only-build-secret-not-for-production    
+          DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+          AUTH_SECRET: "ci-only-build-secret-not-for-production"

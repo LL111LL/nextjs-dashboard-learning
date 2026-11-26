@@ -1,47 +1,28 @@
 import type { Metadata } from "next";
-import { desc, eq } from "drizzle-orm";
+
 import { Suspense } from "react";
 import Link from "next/link";
-import { db } from "@/app/db";
-import {
-  teamMembers,
-  teams,
-} from "@/app/db/schema";
-import { auth } from "@/auth";
 
 import CreateTeamForm from "./create-team-form";
+import { getMyTeams } from "@/app/lib/team-data";
 
 export const metadata: Metadata = {
   title: "团队",
 };
 
 async function TeamsList() {
-  const session = await auth();
+  
+ const result = await getMyTeams();
 
-  if (!session?.user?.id) {
-    return (
-      <p className="mt-6 text-red-500">
-        登录状态已失效，请重新登录。
-      </p>
-    );
-  }
+if (!result.ok) {
+  return (
+    <p className="mt-6 text-red-500">
+      登录状态已失效，请重新登录。
+    </p>
+  );
+}
 
-  const rows = await db
-    .select({
-      id: teams.id,
-      name: teams.name,
-      role: teamMembers.role,
-      createdAt: teams.createdAt,
-    })
-    .from(teamMembers)
-    .innerJoin(
-      teams,
-      eq(teamMembers.teamId, teams.id),
-    )
-    .where(
-      eq(teamMembers.userId, session.user.id),
-    )
-    .orderBy(desc(teams.createdAt));
+const { rows } = result;
 
   if (rows.length === 0) {
     return (
